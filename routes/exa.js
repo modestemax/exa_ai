@@ -9,6 +9,7 @@ router.get('/set_signal', function (req, res, next) {
     debug('got request /set_signal');
     const data = req.query['data'];
     const {exchange, symbol, buy, sell} = JSON.parse(data);
+    debug('set market data');
     market.setStatus({exchange, symbol, buy, sell});
     res.header('Access-Control-Allow-Origin', '*');
     res.send('got it');
