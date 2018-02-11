@@ -2,6 +2,7 @@ const debug = require('debug')('app:telegram')
 const TelegramBot = require('node-telegram-bot-api');
 const Market = require('../market');
 const market = Market.market;
+const exchanges = Market.exchanges;
 // replace the value below with the Telegram token you receive from @BotFather
 const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
@@ -25,7 +26,7 @@ module.exports.start = function () {
         const chatId = msg.chat.id;
         debug('/start from ', chatId);
         if (!chats[chatId]) {
-            bot.sendMessage(chatId, JSON.stringify(market))
+            bot.sendMessage(chatId, JSON.stringify(exchanges))
             chats[chatId] = chatId;
         } else {
             bot.sendMessage(chatId, "Listening");

@@ -8,15 +8,15 @@ const NEW_STATE_EVENT = 'new_state';
 const STALE_EVENT = 'stale';
 const BUY = 'buy';
 const SELL = 'sell';
-
+const exchanges = {};
 let isMarketRunning = false;
 
-module.exports = {NEW_STATE_EVENT, STALE_EVENT, market};
+module.exports = {NEW_STATE_EVENT, STALE_EVENT, market, exchanges};
 
 module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
     isMarketRunning = true;
     debug('got market data', {exchange, symbol, buy, sell});
-    const statusOld = market[exchange] = market[exchange] || {symbol, buy, sell};
+    const statusOld = exchanges[exchange] = exchanges[exchange] || {symbol, buy, sell};
     const statusNew = {symbol, buy, sell};
 
     if (statusOld.buy.date !== statusNew.buy.date) {
@@ -27,16 +27,16 @@ module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
         statusNew.state = SELL;
         debug('sell')
     }
-    statusNew.state && market.emit(NEW_STATE_EVENT, statusNew);
-    market[exchange] = statusNew;
+    statusNew.state && exchanges.emit(NEW_STATE_EVENT, statusNew);
+    exchanges[exchange] = statusNew;
     staleTimeout && clearInterval(staleTimeout);
     staleTimeout = setInterval(() => setStale(exchange), STALE_TIMEOUT)
 };
 
 
 function setStale(exchange) {
-    market[exchange].isStale = true;
-    market.emit(STALE_EVENT);
+    exchanges[exchange].isStale = true;
+    exchanges.emit(STALE_EVENT);
 }
 
 module.exports.isMarketRunning = () => isMarketRunning;
