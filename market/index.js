@@ -1,3 +1,4 @@
+const debug = require('debug')('market');
 const EventEmitter = require('events');
 
 const market = new EventEmitter();
@@ -14,17 +15,19 @@ module.exports = {NEW_STATE_EVENT, STALE_EVENT, market};
 
 module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
     isMarketRunning = true;
-
+    debug('got market data', {exchange, symbol, buy, sell});
     const statusOld = market[exchange] = market[exchange] || {symbol, buy, sell};
     const statusNew = {symbol, buy, sell};
 
     if (statusOld.buy.date !== statusNew.buy.date) {
         statusNew.state = BUY;
+        debug('buy')
     }
     if (statusOld.sell.date !== statusNew.sell.date) {
         statusNew.state = SELL;
+        debug('sell')
     }
-    statusNew.state  && market.emit(NEW_STATE_EVENT, statusNew);
+    statusNew.state && market.emit(NEW_STATE_EVENT, statusNew);
     market[exchange] = statusNew;
     staleTimeout && clearInterval(staleTimeout);
     staleTimeout = setInterval(() => setStale(exchange), STALE_TIMEOUT)

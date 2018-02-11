@@ -11,7 +11,7 @@ router.get('/set_signal', function (req, res, next) {
     const {exchange, symbol, buy, sell} = JSON.parse(data);
     market.setStatus({exchange, symbol, buy, sell});
     res.header('Access-Control-Allow-Origin', '*');
-    res.send(data);
+    res.send('got it');
 });
 
 router.get('/', function (req, res, next) {

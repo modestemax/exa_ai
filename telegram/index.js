@@ -6,7 +6,8 @@ const market = Market.market;
 const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
 const bot = new TelegramBot(token, {polling: true});
-let lastState;
+
+
 module.exports.start = function () {
     const chats = {};
     debug('starting');
@@ -16,7 +17,6 @@ module.exports.start = function () {
     });
     market.on(Market.NEW_STATE_EVENT, function (state) {
         debug(Market.NEW_STATE_EVENT, state);
-        lastState = state;
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, JSON.stringify(state)));
     });
 
@@ -25,9 +25,9 @@ module.exports.start = function () {
         const chatId = msg.chat.id;
         debug('/start from ', chatId);
         if (!chats[chatId]) {
-            lastState && bot.sendMessage(chatId, JSON.stringify(lastState))
+            bot.sendMessage(chatId, JSON.stringify(market))
             chats[chatId] = chatId;
-        }else {
+        } else {
             bot.sendMessage(chatId, "Listening");
         }
 
@@ -40,7 +40,7 @@ module.exports.start = function () {
     bot.onText(/\/stop/, (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
-        debug('/stop from ',chatId);
+        debug('/stop from ', chatId);
         delete chats[chatId];
 
         bot.sendMessage(chatId, "You will not receive notification");
