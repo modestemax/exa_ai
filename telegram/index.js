@@ -7,20 +7,31 @@ const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 const bot = new TelegramBot(token, {polling: true});
 
 module.exports.start = function () {
+    const chats = {};
+
+    market.on(Market.STALE_EVENT, function () {
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
+    });
+    market.on(Market.NEW_STATE_EVENT, function (state) {
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, JSON.stringify(state)));
+    });
 
     bot.onText(/\/start/, (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
+        chats[chatId] = chatId;
 
-        market.on(Market.NEW_STATE_EVENT, function (state) {
-            bot.sendMessage(chatId, JSON.stringify(state));
-        });
-        market.on(Market.STALE_EVENT, function () {
-            bot.sendMessage(chatId, "No reply from Exa [URGENT]");
-        })
         if (!Market.isMarketRunning()) {
             bot.sendMessage(chatId, "Initializing Exa Ai");
         }
-
     });
+
+
+    bot.onText(/\/stop/, (msg) => {
+        // 'msg' is the received Message from Telegram
+        const chatId = msg.chat.id;
+        delete chats[chatId];
+
+        bot.sendMessage(chatId, "You will not receive notification");
+    })
 }
