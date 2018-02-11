@@ -5,7 +5,7 @@ const market = Market.market;
 const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
 const bot = new TelegramBot(token, {polling: true});
-
+let lastState;
 module.exports.start = function () {
     const chats = {};
 
@@ -13,13 +13,18 @@ module.exports.start = function () {
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
     });
     market.on(Market.NEW_STATE_EVENT, function (state) {
+        lastState = state;
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, JSON.stringify(state)));
     });
 
     bot.onText(/\/start/, (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
-        chats[chatId] = chatId;
+        if (!chats[chatId]) {
+            lastState && bot.sendMessage(chatId, JSON.stringify(lastState))
+            chats[chatId] = chatId;
+        }
+
 
         if (!Market.isMarketRunning()) {
             bot.sendMessage(chatId, "Initializing Exa Ai");
