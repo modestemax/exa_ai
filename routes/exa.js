@@ -13,6 +13,7 @@ router.get('/set_signal', function (req, res, next) {
     market.setStatus({exchange, symbol, buy, sell});
     res.header('Access-Control-Allow-Origin', '*');
     res.send('got it');
+    debug('replied');
 });
 
 router.get('/', function (req, res, next) {
