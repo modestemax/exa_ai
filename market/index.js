@@ -36,7 +36,7 @@ module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
 
 function setStale(exchange) {
     exchanges[exchange].isStale = true;
-    exchanges.emit(STALE_EVENT);
+    market.emit(STALE_EVENT);
 }
 
 module.exports.isMarketRunning = () => isMarketRunning;
