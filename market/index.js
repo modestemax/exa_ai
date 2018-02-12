@@ -1,4 +1,5 @@
 const debug = require('debug')('market');
+const _ = require('lodash');
 const EventEmitter = require('events');
 
 const market = new EventEmitter();
@@ -19,11 +20,16 @@ module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
     const statusOld = exchanges[exchange] = exchanges[exchange] || {symbol, buy, sell};
     const statusNew = {symbol, buy, sell};
 
-    if (statusOld.buy.date !== statusNew.buy.date) {
+    const {state_old, state_new} = {
+        state_old: {buy: _.last(statusOld.buy), sell: _.last(statusOld.sell)},
+        state_new: {buy: _.last(statusNew.buy), sell: _.last(statusNew.sell)}
+    };
+
+    if (state_old.buy.date !== state_new.buy.date) {
         statusNew.state = BUY;
         debug('buy')
     }
-    if (statusOld.sell.date !== statusNew.sell.date) {
+    if (state_old.sell.date !== state_new.sell.date) {
         statusNew.state = SELL;
         debug('sell')
     }

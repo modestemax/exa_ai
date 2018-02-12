@@ -13,8 +13,8 @@ reqExa.onreadystatechange = function (event) {
                 let result = {
                     exchange: 'binance',
                     symbol: response.currency,
-                    buy: mark_buy && mark_buy.slice(-1)[0],
-                    sell: mark_sell && mark_sell.slice(-1)[0]
+                    buy: mark_buy ,//&& mark_buy.slice(-1)[0],
+                    sell: mark_sell //&& mark_sell.slice(-1)[0]
                 };
                 m24_send_signal(result);
             } finally {
