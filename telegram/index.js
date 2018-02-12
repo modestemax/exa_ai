@@ -10,6 +10,10 @@ const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 const bot = new TelegramBot(token, {polling: true});
 
 
+function showResume(bot, chatId, resume) {
+    bot.sendMessage(chatId, getResume(resume), {parse_mode: "HTML"});
+}
+
 module.exports.start = function () {
     const chats = {};
     debug('starting');
@@ -19,16 +23,16 @@ module.exports.start = function () {
     });
     market.on(Market.NEW_STATE_EVENT, function (state) {
         debug(Market.NEW_STATE_EVENT, state);
-        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, getResume(state), {parse_mode: "HTML"}));
+        Object.keys(chats).forEach(chatId => showResume(bot, chatId, resume));
     });
 
-    bot.onText(/\/start/, (msg) => {
+    bot.onText(/\/start/, async (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
         debug('/start from ', msg.from.first_name);
         if (!chats[chatId]) {
-            bot.sendMessage(chatId, "Hello  " + msg.from.first_name);
-            bot.sendMessage(chatId, getResume(), {parse_mode: "HTML"});
+            await  bot.sendMessage(chatId, "Hello  " + msg.from.first_name);
+            showResume(bot, chatId)
             chats[chatId] = chatId;
         } else {
             bot.sendMessage(chatId, "Listening");
@@ -37,6 +41,7 @@ module.exports.start = function () {
         if (!Market.isMarketRunning()) {
             bot.sendMessage(chatId, "Initializing Exa Ai");
         }
+        setInterval(() => showResume(bot, chatId), 1e3 * 60 * 5)
     });
 
 
@@ -54,7 +59,7 @@ module.exports.start = function () {
         const chatId = msg.chat.id;
         debug('/check from ', msg.from.first_name);
 
-        bot.sendMessage(chatId, getResume(), {parse_mode: "HTML"});
+        showResume(bot, chatId)
     })
 }
 

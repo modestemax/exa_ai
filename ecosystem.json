@@ -11,7 +11,8 @@
       ],
       "env": {
         "app_name": "m24",
-        "PORT": 3000
+        "PORT": 3000,
+        "DEBUG": "app:*"
       }
     }
   ],
@@ -24,9 +25,9 @@
       "repo": "https://github.com/modestemax/exa_ai.git",
       "path": "/home/ubuntu/m24/exa_ai/",
       "___pre-deploy-local": "grunt jshint:prod",
-      "post-deploy": "pm2 delete ecosystem.json && pm2 startOrRestart ecosystem.json --update-env  && pm2 save",
+      "post-deploy": "pm2 delete ecosystem.json && npm install && pm2 startOrRestart ecosystem.json --update-env  && pm2 save",
       "env": {
-        "NODE_ENV": "production",
+        "NODE_ENV": "production"
       }
     }
   }

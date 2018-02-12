@@ -21,8 +21,8 @@ module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
     const statusNew = {symbol, buy, sell};
 
     const {state_old, state_new} = {
-        state_old: {buy: _.last(statusOld.buy), sell: _.last(statusOld.sell)},
-        state_new: {buy: _.last(statusNew.buy), sell: _.last(statusNew.sell)}
+        state_old: {buy: _.last(statusOld.buy) || {}, sell: _.last(statusOld.sell) || {}},
+        state_new: {buy: _.last(statusNew.buy) || {}, sell: _.last(statusNew.sell) || {}}
     };
 
     if (state_old.buy.date !== state_new.buy.date) {
