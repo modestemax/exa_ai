@@ -89,10 +89,10 @@ function getResume(state) {
             let sells = exchangesFR[exchange][symbol].sell;
 
             let buy_sell_detail = _.reduce(buys, (gtext, buy) => {
-                let text = `<pre>Buy time: ${buy.raw_date} price: ${buy.value} [${buy.low_price}]</pre>`;
+                let text = `<pre>Buy time: ${buy.raw_date} price: ${buy.value} [${buy.low_price}/${buy.close_price}]</pre>`;
                 let sell = _.filter(sells, (sell) => sell.date > buy.date)[0];
                 if (sell) {
-                    text += `<pre>Sell time: ${sell.raw_date} price: ${sell.value} [${sell.high_price}]</pre>`;
+                    text += `<pre>Sell time: ${sell.raw_date} price: ${sell.value} [${sell.high_price}/${sell.close_price}]</pre>`;
                     let gain = (sell.value - buy.value) / buy.value * 100;
                     gain = Math.round(gain * 100) / 100;
                     text += `<i>Gain: ${gain}%</i>`;
