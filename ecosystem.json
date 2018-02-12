@@ -2,7 +2,7 @@
   "apps": [
     {
       "name": "m24",
-      "script": "bin/www.js",
+      "script": "bin/www",
       "cwd": "./",
       "instances": 1,
       "exec_mode": "cluster",
