@@ -15,7 +15,7 @@ module.exports.start = function () {
     debug('starting');
     market.on(Market.STALE_EVENT, function () {
         debug(Market.STALE_EVENT);
-        //     Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
     });
     market.on(Market.NEW_STATE_EVENT, function (state) {
         debug(Market.NEW_STATE_EVENT, state);
@@ -63,6 +63,8 @@ function getResume(state) {
                 let gain = (sell.value - buy.value) / buy.value * 100;
                 gain = Math.round(gain * 100) / 100;
                 text += `<i>Gain: ${gain}%</i>`;
+            } else {
+                text += `<i>No Sell Signal yet</i>`;
             }
             return gtext + text;
         }, '');
