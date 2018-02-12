@@ -2,8 +2,7 @@ const debug = require('debug')('app:telegram')
 const _ = require('lodash');
 const TelegramBot = require('node-telegram-bot-api');
 const Market = require('../market');
-const market = Market.market;
-const exchanges = Market.exchanges;
+const {exchanges, market} = Market;
 // replace the value below with the Telegram token you receive from @BotFather
 const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
@@ -23,7 +22,10 @@ module.exports.start = function () {
     });
     market.on(Market.NEW_STATE_EVENT, function (state) {
         debug(Market.NEW_STATE_EVENT, state);
-        Object.keys(chats).forEach(chatId => showResume(bot, chatId, resume));
+        Object.keys(chats).forEach(async chatId => {
+            await bot.sendMessage(chatId, 'New Signal <code>' + state.state + '</code>', {parse_mode: "HTML"});
+            showResume(bot, chatId, state)
+        });
     });
 
     bot.onText(/\/start/, async (msg) => {
@@ -64,26 +66,33 @@ module.exports.start = function () {
 }
 
 function getResume(state) {
-    let _exchanges = state ? {[state.exchange]: state} : exchanges;
-    let text = _.keys(_exchanges).reduce((gtext, exchange) => {
-        let table_head = `<b>${exchange}</b> <b>${exchanges[exchange].symbol}</b>`;
+    let exchangesFR = state ? {[state.exchange]: {[state.symbol]: state}} : exchanges;
 
-        let buy_sell_detail = _.reduce(exchanges[exchange].buy, (gtext, buy) => {
-            let text = `<pre>Buy time: ${buy.date} price: ${buy.value}</pre>`;
-            let sell = _.filter(exchanges[exchange].sell, (sell) => new Date(sell.date) > new Date(buy.date))[0];
-            if (sell) {
-                text += `<pre>Sell time: ${sell.date} price: ${sell.value}</pre>`;
-                let gain = (sell.value - buy.value) / buy.value * 100;
-                gain = Math.round(gain * 100) / 100;
-                text += `<i>Gain: ${gain}%</i>`;
-            } else {
-                text += `<i>No Sell Signal yet</i>`;
-            }
-            return gtext + text;
+    let text = _.keys(exchangesFR).reduce((gtext, exchange) => {
+        return gtext + _.keys(exchangesFR[exchange][exchangesFR[exchange].symbol]).reduce((gtext, symbol) => {
+
+            let header_text = `<b>${exchange}</b> <b>${symbol}</b>`;
+
+            let buys = exchangesFR[exchange][exchangesFR[exchange].symbol].buy;
+            let sells = exchangesFR[exchange][exchangesFR[exchange].symbol].sell;
+
+            let buy_sell_detail = _.reduce(buys, (gtext, buy) => {
+                let text = `<pre>Buy time: ${buy.date} price: ${buy.value} [${buy.close_price}]</pre>`;
+                let sell = _.filter(sells, (sell) => new Date(sell.date) > new Date(buy.date))[0];
+                if (sell) {
+                    text += `<pre>Sell time: ${sell.date} price: ${sell.value} [${sell.close_price}]</pre>`;
+                    let gain = (sell.value - buy.value) / buy.value * 100;
+                    gain = Math.round(gain * 100) / 100;
+                    text += `<i>Gain: ${gain}%</i>`;
+                } else {
+                    text += `<i>No Sell Signal yet</i>`;
+                }
+                return gtext + text;
+            }, '');
+
+            return gtext + header_text + buy_sell_detail;
         }, '');
-
-        return gtext += table_head + buy_sell_detail;
-    }, '');
+    };
     return text;
 }
 
