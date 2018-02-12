@@ -90,10 +90,10 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
         state_old: {buy: _.last(statusOld.buy) || {}, sell: _.last(statusOld.sell) || {}},
         state_new: {buy: _.last(statusNew.buy) || {}, sell: _.last(statusNew.sell) || {}}
     };
-    let ticker;
+
     if (state_old.buy.raw_date !== state_new.buy.raw_date) {
         state_old.buy.raw_date && market.emit(BUY_EVENT, {symbol, buy: state_new.buy});
-        ticker = await getTicker({exchange, symbol, date: state_new.buy.date});
+        let ticker = await getTicker({exchange, symbol, date: state_new.buy.date});
         statusNew.state = BUY;
         state_new.buy.low_price = ticker.low_price;
         state_new.buy.close_price = ticker.close_price;
@@ -101,7 +101,7 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
     }
     if (state_old.sell.raw_date !== state_new.sell.raw_date) {
         state_old.sell.raw_date && market.emit(SELL_EVENT, {symbol, sell: state_new.sell});
-        ticker = ticker || await getTicker({exchange, symbol, date: state_new.sell.date});
+        let ticker = await getTicker({exchange, symbol, date: state_new.sell.date});
         statusNew.state = SELL;
         state_new.sell.high_price = ticker.high_price;
         state_new.sell.close_price = ticker.close_price;
