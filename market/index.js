@@ -33,7 +33,7 @@ module.exports.setStatus = function ({exchange, symbol, buy, sell}) {
         statusNew.state = SELL;
         debug('sell')
     }
-    statusNew.state && exchanges.emit(NEW_STATE_EVENT, statusNew);
+    statusNew.state && market.emit(NEW_STATE_EVENT, statusNew);
     exchanges[exchange] = statusNew;
     staleTimeout && clearInterval(staleTimeout);
     staleTimeout = setInterval(() => setStale(exchange), STALE_TIMEOUT)
