@@ -36,7 +36,7 @@ module.exports.start = function () {
     market.on(Market.NEW_STATE_EVENT, function (state) {
         debug(Market.NEW_STATE_EVENT, state);
         Object.keys(chats).forEach(async chatId => {
-            await bot.sendMessage(chatId, 'New Signal <code>' + state.state + '</code>', {parse_mode: "HTML"});
+            await bot.sendMessage(chatId, `New Signal <code>${state.state}</code>`, {parse_mode: "HTML"});
             showResume(bot, chatId, state)
         });
     });

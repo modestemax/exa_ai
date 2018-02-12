@@ -130,8 +130,8 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
         state_new.sell.priceTxt = getPrice(ticker);
         debug('sell', state_new.sell)
     }
-    if ((!statusOld.raw_date || statusNew.state)) {
-        market.emit(NEW_STATE_EVENT, statusNew);
+    if (!state_old.raw_date || statusNew.state) {
+        statusNew.state && market.emit(NEW_STATE_EVENT, statusNew);
         if (!statusOld.raw_date) {
             exchanges[exchange][symbol] = statusNew;
         } else {
