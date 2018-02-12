@@ -39,15 +39,33 @@ const getDate = (exa_date) => {
     return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()))
 };
 
-async function getTicker({exchange, symbol, date, timeframe = DEFAULT_TIMEFRAME}) {
+async function getTicker({exchange, symbol}) {
     let exMarket = exMarets[exchange];
     if (!exMarket) {
         exMarket = exMarets[exchange] = new ccxt[exchange]();
         await exMarket.loadMarkets();
     }
-    let tickers = await feed({exchange: exMarket, since: getSince({timeframe, date}), symbol: getSymbol(symbol)});
+    return exMarket.fetchTicker(getSymbol(symbol))
+}
+
+async function getCandle({exchange, symbol, date = new Date(), timeframe = DEFAULT_TIMEFRAME}) {
+    let exMarket = exMarets[exchange];
+    if (!exMarket) {
+        exMarket = exMarets[exchange] = new ccxt[exchange]();
+        await exMarket.loadMarkets();
+    }
+    let tickers = await feed({
+        exchange: exMarket,
+        since: getSince({timeframe, date}) - 10e3,
+        symbol: getSymbol(symbol)
+    });
     let ticker = _.last(tickers);
     return ticker || {}
+}
+
+function getPrice(ticker) {
+    let {ask, bid, last} = ticker;
+    return ask + bid + last ? `    [Ask: <i>${ask}</i>  Bid: <i>${bid}</i>   Last: <i>${last}</i>]` : '';
 }
 
 function getSince({timeframe, date}) {
@@ -78,8 +96,8 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
     const statusNew = {
         exchange,
         symbol,
-        buy: _.map(buy, buy => _.extend(buy, {raw_date: buy.date, date: getDate(buy.date)})),
-        sell: _.map(sell, sell => _.extend(sell, {raw_date: sell.date, date: getDate(sell.date)}))
+        buy: _.map(buy, buy => _.extend(buy, {priceTxt: '', raw_date: buy.date, date: getDate(buy.date)})),
+        sell: _.map(sell, sell => _.extend(sell, {priceTxt: '', raw_date: sell.date, date: getDate(sell.date)}))
     };
 
     debug('got market data', statusNew);
@@ -91,20 +109,25 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
         state_new: {buy: _.last(statusNew.buy) || {}, sell: _.last(statusNew.sell) || {}}
     };
 
-    if (state_old.buy.raw_date !== state_new.buy.raw_date) {
-        state_old.buy.raw_date && market.emit(BUY_EVENT, {symbol, buy: state_new.buy});
-        let ticker = await getTicker({exchange, symbol, date: state_new.buy.date});
+
+    if (state_old.buy.raw_date && state_old.buy.raw_date !== state_new.buy.raw_date) {
+        market.emit(BUY_EVENT, {symbol, buy: state_new.buy});
+        let ticker = await getTicker({exchange, symbol});
         statusNew.state = BUY;
-        state_new.buy.low_price = ticker.low_price;
-        state_new.buy.close_price = ticker.close_price;
+        state_new.buy.ask = ticker.ask;
+        state_new.buy.bid = ticker.bid;
+        state_new.buy.last = ticker.last;
+        state_new.buy.priceTxt = getPrice(ticker);
         debug('buy', state_new.buy)
     }
-    if (state_old.sell.raw_date !== state_new.sell.raw_date) {
-        state_old.sell.raw_date && market.emit(SELL_EVENT, {symbol, sell: state_new.sell});
-        let ticker = await getTicker({exchange, symbol, date: state_new.sell.date});
+    if (state_old.sell.raw_date && state_old.sell.raw_date !== state_new.sell.raw_date) {
+        market.emit(SELL_EVENT, {symbol, sell: state_new.sell});
+        let ticker = await getTicker({exchange, symbol});
         statusNew.state = SELL;
-        state_new.sell.high_price = ticker.high_price;
-        state_new.sell.close_price = ticker.close_price;
+        state_new.sell.ask = ticker.ask;
+        state_new.sell.bid = ticker.bid;
+        state_new.sell.last = ticker.last;
+        state_new.sell.priceTxt = getPrice(ticker);
         debug('sell', state_new.sell)
     }
     if ((!statusOld.raw_date || statusNew.state)) {
@@ -122,7 +145,7 @@ module.exports.setStatus = async function ({exchange, symbol, buy, sell}) {
 
 
 function setStale(exchange) {
-    exchanges[exchange].isStale = true;
+    // exchanges[exchange].isStale = true;
     market.emit(STALE_EVENT);
 }
 
