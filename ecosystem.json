@@ -1,0 +1,168 @@
+{
+  "apps": [
+    {
+      "name": "server",
+      "script": "app.js",
+      "cwd": "sources-codes/server/app",
+      "instances": 1,
+      "exec_mode": "cluster",
+      "1interpreter": "node@7.7.1",
+      "node_args": [
+        //        "--max_old_space_size=500"
+      ],
+      "env": {
+        "app_name": "server",
+        "PORT": 3130
+      }
+    },
+    {
+      "name": "server2",
+      "script": "app.js",
+      "cwd": "sources-codes/server/app",
+      "instances": 1,
+      "exec_mode": "cluster",
+      "1interpreter": "node@7.7.1",
+      "node_args": [
+        //        "--max_old_space_size=500"
+      ],
+      "env": {
+        "app_name": "server2",
+        "PORT": 3131
+      }
+    },
+    {
+      "name": "server3",
+      "script": "app.js",
+      "cwd": "sources-codes/server/app",
+      "instances": 1,
+      "exec_mode": "cluster",
+      "1interpreter": "node@7.7.1",
+      "node_args": [
+        //        "--max_old_space_size=500"
+      ],
+      "env": {
+        "app_name": "server3",
+        "PORT": 3132
+      }
+    },
+    {
+      "name": "server_enda",
+      "script": "app.js",
+      "cwd": "sources-codes/server/app",
+      "instances": 1,
+      "exec_mode": "cluster",
+      "1interpreter": "node@7.7.1",
+      "node_args": [
+        // "--max_old_space_size=500"
+      ],
+      "env": {
+        "app_name": "server_enda",
+        "PORT": 3530,
+        "endaTravel": true,
+        "skip_rpc": true,
+        "session.domain": "",
+        "session.cookie_name": "enda2207.sid"
+      }
+      //      "env_aws_test": {
+      //        "endaTravelEmail": "endautest4@gmail.com",
+      //        "endaTravelPassword": "12345",
+      //        "session.domain": "",
+      //        "1session.domain": "enda-travel.test.airbooks.co.za",
+      //      },
+      //      "env_aws": {
+      //        "endaTravelEmail": "endautest4@gmail.com",
+      //        "endaTravelPassword": "12345",
+      //        "session.domain": "",
+      //        "1session.domain": "enda-travel.airbooks.co.za",
+      //      }
+    },
+    {
+      "name": "server_debug",
+      "script": "app.js",
+      "cwd": "sources-codes/server/app",
+      "instances": 1,
+      "exec_mode": "cluster",
+      "1interpreter": "node@7.7.1",
+      "node_args": "--inspect=0.0.0.0:5858",
+      "env": {
+        "app_name": "server_debug",
+        "DEBUG": "*",
+        "PORT": 3930,
+        "CLIENT_CLEAN": true,
+        "skip_rpc": true
+      }
+    }
+  ],
+  "deploy": {
+    "aws": {
+      "key": "/home/max/.ssh/aws.pem",
+      "user": "ubuntu",
+      "host": "beta.airbooks.co.za",
+      "//host": "i.airbooks.co.za",
+      "ref": "origin/aws",
+      "repo": "git@gitlab.airbooks.co.za:max/airbooks-server.git",
+      "path": "/home/ubuntu/airbooks/server/",
+      "___pre-deploy-local": "grunt jshint:prod",
+      "post-deploy": "pm2 delete ecosystem.json && pm2 startOrRestart ecosystem.json --update-env --env aws && pm2 save",
+      "env": {
+        "NODE_ENV": "production",
+        "aws": true
+      }
+    },
+//    "aws-test": {
+//      "key": "/home/max/.ssh/aws.pem",
+//      "user": "ubuntu",
+//      "host": "test.airbooks.co.za",
+//      "ref": "origin/aws-test",
+//      "repo": "git@gitlab.airbooks.co.za:max/airbooks-server.git",
+//      "path": "/home/ubuntu/airbooks/server/",
+//      "___pre-deploy-local": "grunt jshint:prod",
+//      "post-deploy": "pm2 delete ecosystem.json && pm2 startOrRestart ecosystem.json --env aws-test && pm2 save",
+//      "env": {
+//        "NODE_ENV": "production",
+//        "-------database-----------": "",
+//        "database.admin-host": "db.test.airbooks.co.za",
+//        "database.client-host": "db.test.airbooks.co.za",
+//        "database.default_database": "abc56396",
+//        "database.user": "postgres",
+//        "database.password": "ameen*3n",
+//        "-------slack-----------": "",
+//        "subscription_slack_channel": "#subscription_logs_t",
+//        "-------redis----------": "",
+//        "redis.host": "localhost",
+//        "-------irsPath-----------": "",
+//        "irsPath.amadeus": "smb://feed.test.airbooks.co.za/$share_key/air",
+//        "irsPath.galileo": "smb://feed.test.airbooks.co.za/$share_key/mir",
+//        "irsPath.sabre": "smb://feed.test.airbooks.co.za/$share_key/uir",
+//        "-------url-----------": "",
+//        "airbooksUrl": "https://app.test.airbooks.co.za",
+//        "help_doc-url": "http://www.test.airbooks.co.za/support/user_guide",
+//        "quick_card-url": "http://www.test.airbooks.co.za/support/welcome_guide",
+//        "enda_travel-url": "http://www.test.airbooks.co.za/enda_travel",
+//        "getting_started-url": "http://www.test.airbooks.co.za/support/welcome_guide",
+//        "Knowledge_base_brand_your_documents-url": "https://www.test.airbooks.co.za/user_guide/index.html?AgencyProfile.html",
+//        "help_documentation_settings_integration_e_ticket_forwarding-url": "https://www.test.airbooks.co.za/user_guide/index.html?eTicketsForwarding.html",
+//        "help_documentation_settings_integration_interface_records-url": "https://www.test.airbooks.co.za/user_guide/index.html?InterfaceRecords.html",
+//        "help_documentation_customer-url": "https://www.test.airbooks.co.za/user_guide/index.html?ManageCustomers.html",
+//        "help_documentation_settings_user-url": "https://www.test.airbooks.co.za/user_guide/index.html?Users.html",
+//        "feature_request-email": "support+feature_request_test@airbooks.co.za"
+//      }
+//    },
+    "dev": {
+      "user": "max",
+      "host": "localhost",
+      "ref": "origin/master",
+      "repo": "git@gitlab.airbooks.co.za:max/airbooks-server.git",
+      "path": "/home/max/airbooks/server/",
+      "____pre-deploy-local": "grunt jshint:prod",
+      "1*****___post-deploy": "pm2 delete ecosystem.json && pm2 startOrRestart ecosystem.json --update-env --env dev && pm2 save",
+      "post-deploy": "pm2 delete ecosystem.json  && pm2 save",
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "*",
+        "static.root-dir": "/home/max/airbooks/client/bin-client/deploy",
+        "static.root-dir-clean": "/home/max/airbooks/client/bin-client-clean/deploy"
+      }
+    }
+  }
+}
