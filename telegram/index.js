@@ -28,7 +28,7 @@ module.exports.start = function () {
         debug('/start from ', msg.from.first_name);
         if (!chats[chatId]) {
             bot.sendMessage(chatId, "Hello  " + msg.from.first_name);
-            bot.sendMessage(chatId, getResume(), {parse_mode: "HTML"})
+            bot.sendMessage(chatId, getResume(), {parse_mode: "HTML"});
             chats[chatId] = chatId;
         } else {
             bot.sendMessage(chatId, "Listening");
@@ -43,10 +43,18 @@ module.exports.start = function () {
     bot.onText(/\/stop/, (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
-        debug('/stop from ', chatId);
+        debug('/stop from ', msg.from.first_name);
         delete chats[chatId];
 
         bot.sendMessage(chatId, "You will not receive notification");
+    })
+
+    bot.onText(/\/check/, (msg) => {
+        // 'msg' is the received Message from Telegram
+        const chatId = msg.chat.id;
+        debug('/check from ', msg.from.first_name);
+
+        bot.sendMessage(chatId, getResume(), {parse_mode: "HTML"});
     })
 }
 
