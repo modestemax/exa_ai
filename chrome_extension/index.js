@@ -2,7 +2,7 @@ function startM24AI() {
     try {
         const baseUrl = 'https://signal3.exacoin.co/get_signal?currency=:symbol:&market=binance&t=';
         const m24BaseUrl = 'https://m24.airbooks.co.za/exa/set_signal?';
-        let symbols = ['BTC-USDT', 'TRX-BTC', 'WTC-BTC'];
+        let symbols = ['BTC-USDT', 'TRX-BTC'/*, 'WTC-BTC'*/];
         const FREQUENCY = (symbols.length + 1) * 1e3;
 
         const xmlHttpReqs = symbols.reduce(({reqExa, reqM24}, symbol) => {

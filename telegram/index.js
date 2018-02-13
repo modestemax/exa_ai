@@ -2,8 +2,12 @@ const debug = require('debug')('app:telegram')
 const _ = require('lodash');
 const TelegramBot = require('node-telegram-bot-api');
 const market = require('../market');
+const DEBUG = process.env.NODE_ENV !== 'production';
+const DEFAULT_CHAT_ID = '475514014';
 // replace the value below with the Telegram token you receive from @BotFather
-const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
+const token = !DEBUG ?
+    '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU' :
+    '496655496:AAFmg9mheE9urDt2oCQDIRL5fXjCpGYiAug';
 
 const bot = new TelegramBot(token, {polling: true});
 
@@ -11,6 +15,10 @@ const bot = new TelegramBot(token, {polling: true});
 
 module.exports.start = function () {
     const chats = {};
+    if (DEBUG) {
+        chats[DEFAULT_CHAT_ID] = DEFAULT_CHAT_ID
+    }
+
     debug('starting');
     market.on(market.STALE_EVENT, function () {
         debug('Exa is sillent');
@@ -19,7 +27,10 @@ module.exports.start = function () {
 
     market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
         debug('action ' + action);
-        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, `<code>${action} ${symbol}</code> Time: ${raw_date} <pre> Price: ${price}</pre>`, {parse_mode: "HTML"}));
+        Object.keys(chats).forEach(chatId =>
+            bot.sendMessage(chatId,
+                `<b style="color: red">${action.toUpperCase()}</b> <code>${symbol}</code> Time: ${raw_date}<pre>Price: ${price}</pre>`,
+                {parse_mode: "HTML"}));
     });
 
     bot.onText(/\/start/, async (msg) => {

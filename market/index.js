@@ -19,7 +19,7 @@ module.exports.setStatus = async function (signal) {
 
     debug('got market data', signal);
 
-    if (new Date() - new Date(signal.date )< 1e3 * 60) {
+    if ((new Date() - new Date(signal.date) < 1e3 * 60) || signal.debug) {
         market.emit(BUY_SELL_EVENT, signal);
     }
     staleTimeout && clearInterval(staleTimeout);
