@@ -12,7 +12,8 @@
       "env": {
         "app_name": "m24",
         "PORT": 3000,
-        "DEBUG": "app:*"
+        "DEBUG": "app:*",
+        "NODE_ENV": "production"
       }
     }
   ],
