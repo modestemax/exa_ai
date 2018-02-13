@@ -2,6 +2,7 @@ const debug = require('debug')('market');
 const _ = require('lodash');
 const EventEmitter = require('events');
 const ccxt = require('ccxt');
+const curl = require('curl');
 
 const market = new EventEmitter();
 let staleTimeout;
@@ -10,7 +11,7 @@ const DEFAULT_TIMEFRAME = '15m';
 const BUY_SELL_EVENT = 'buy_sell_event';
 const STALE_EVENT = 'stale';
 let isMarketRunning = false;
-
+let signals;
 
 module.exports = Object.assign(market, {BUY_SELL_EVENT, STALE_EVENT});
 
@@ -32,3 +33,33 @@ function setStale() {
 }
 
 module.exports.isMarketRunning = () => isMarketRunning;
+
+
+function getExaAiSignals() {
+    curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        console.log(body);
+        signals = JSON.parse(body);
+        setTimeout(getExaAiSignals, 10e3);
+    })
+}
+
+module.exports.getSignal = function (symbol) {
+    let signal = [].concat(signals.buy, signals.sell).find(i => new RegExp(symbol).test(i.currency));
+    if (signal) {
+        let date = new Date(signal.signal);
+        return {
+            price: signal.price,
+            signal: signal.signal,
+            action: signal.signal,
+            symbol: signal.currency,
+            time: [date.toLocaleDateString().split('/').slice(0, -1).join('/'), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' '),
+            raw_date: [date.toLocaleDateString().split('/').slice(0, -1).join('/'), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' '),
+        }
+    }
+};
+
+module.exports.listSymbol = function () {
+    return [].concat(signals.buy, signals.sell).map(i => i.currency);
+};
+
+getExaAiSignals();

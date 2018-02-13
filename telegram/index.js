@@ -28,9 +28,7 @@ module.exports.start = function () {
     market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
         debug('action ' + action);
         Object.keys(chats).forEach(chatId =>
-            bot.sendMessage(chatId,
-                `<b style="color: red">${action.toUpperCase()}</b> <code>${symbol}</code> Time: ${raw_date}<pre>Price: ${price}</pre>`,
-                {parse_mode: "HTML"}));
+            bot.sendMessage(chatId, showSignal({action, symbol, raw_date, price}), {parse_mode: "HTML"}));
     });
 
     bot.onText(/\/start/, async (msg) => {
@@ -38,12 +36,12 @@ module.exports.start = function () {
         const chatId = msg.chat.id;
         debug('/start from ', msg.from.first_name);
         if (!chats[chatId]) {
-            await  bot.sendMessage(chatId, "Hello  " + msg.from.first_name);
+            await  bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre> Type /list to show all coins`);
             // showResume(bot, chatId)
             chats[chatId] = chatId;
             bot.sendMessage(chatId, "I'll send you all buy/sell signal");
         } else {
-            bot.sendMessage(chatId, "Listening");
+            bot.sendMessage(chatId, "Type /list to show all coins.");
         }
     });
 
@@ -56,4 +54,24 @@ module.exports.start = function () {
 
         bot.sendMessage(chatId, "You will not receive notification");
     })
+
+    bot.onText(/^\/(?!start|stop|list)(.*)/i, (msg, cmd) => {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});
+    })
+    bot.onText(/^\/list/i, (msg) => {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, showSymbols(market.listSymbol())/*, {parse_mode: "HTML"}*/);
+    })
 };
+
+function showSignal({action, symbol, raw_date, price}={}) {
+    return action?
+        `<b>${action.toUpperCase()}</b> <code>${symbol}</code> Time: ${raw_date}<pre>Price: ${price}</pre>`:
+        'Coin not found, try with /list to list all.';
+}
+
+function showSymbols(symbols) {
+    return symbols.map(symbol => `/${symbol}`).join('  ');
+    // return symbols.map(symbol => `<code>/${symbol}</code>`).join('  ');
+}
