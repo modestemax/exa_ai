@@ -57,6 +57,7 @@ module.exports.start = function () {
 
     bot.onText(/^\/(?!start|stop|list)(.*)/i, (msg, cmd) => {
         const chatId = msg.chat.id;
+        debug(cmd);
         bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});
     })
     bot.onText(/^\/list/i, (msg) => {

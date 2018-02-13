@@ -37,7 +37,7 @@ module.exports.isMarketRunning = () => isMarketRunning;
 
 function getExaAiSignals() {
     curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        console.log(body);
+        // console.log(body);
         signals = JSON.parse(body);
         setTimeout(getExaAiSignals, 10e3);
     })
