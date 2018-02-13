@@ -36,7 +36,7 @@ module.exports.start = function () {
         const chatId = msg.chat.id;
         debug('/start from ', msg.from.first_name);
         if (!chats[chatId]) {
-            await  bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre> Type /list to show all coins`);
+            await  bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre> Type /list to show all coins`, {parse_mode: "HTML"});
             // showResume(bot, chatId)
             chats[chatId] = chatId;
             bot.sendMessage(chatId, "I'll send you all buy/sell signal");
@@ -65,9 +65,9 @@ module.exports.start = function () {
     })
 };
 
-function showSignal({action, symbol, raw_date, price}={}) {
-    return action?
-        `<b>${action.toUpperCase()}</b> <code>${symbol}</code> Time: ${raw_date}<pre>Price: ${price}</pre>`:
+function showSignal({action, symbol, raw_date, price} = {}) {
+    return action ?
+        `<b>${action.toUpperCase()}</b> <code>${symbol}</code> Time: ${raw_date}<pre>Price: ${price}</pre>` :
         'Coin not found, try with /list to list all.';
 }
 
