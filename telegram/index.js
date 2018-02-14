@@ -25,17 +25,17 @@ module.exports.start = function () {
     debug('starting');
     market.on(market.STALE_EVENT, function () {
         debug('Exa is sillent');
-        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]").catch(_.noop));
     });
     market.on(market.ALL_AI_ERROR_EVENT, function () {
         debug('ALL_AI_ERROR_EVENT');
-        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]"));
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]").catch(_.noop));
     });
 
     market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
         debug('action ' + action);
         Object.keys(chats).forEach(chatId =>
-            bot.sendMessage(chatId, showSignal({action, symbol, raw_date, price}), {parse_mode: "HTML"}));
+            bot.sendMessage(chatId, showSignal({action, symbol, raw_date, price}), {parse_mode: "HTML"}).catch(_.noop));
     });
 
     bot.onText(/\/start/, async (msg) => {
@@ -62,7 +62,7 @@ module.exports.start = function () {
         bot.sendMessage(chatId, "You will not receive notification");
     })
 
-    bot.onText(/^\/(?!start|stop|list)([^@]*).*/i, (msg, cmd) => {
+    bot.onText(/^\/(?!start|stop|on|off|list)([^@]*).*/i, (msg, cmd) => {
         const chatId = msg.chat.id;
         debug(cmd);
         bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});
@@ -70,6 +70,14 @@ module.exports.start = function () {
     bot.onText(/^\/list/i, (msg) => {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, showSymbols(market.listSymbol())/*, {parse_mode: "HTML"}*/);
+    })
+    bot.onText(/^\/(on|off)(.*)/i, (msg, [, status, symbol]) => {
+        const chatId = msg.chat.id;
+        // let status = cmd[1];
+        // let symbol = cmd[2];
+        symbol = _.trim(symbol, ['_', ' ']);
+        market.track({symbol, track: status === 'on'});
+        bot.sendMessage(chatId, `<pre>${symbol}</pre> tracking ${status}`, {parse_mode: "HTML"});
     })
 };
 
