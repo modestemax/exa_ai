@@ -46,10 +46,8 @@ module.exports.start = function () {
             await  bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre> Type /list to show all coins`, {parse_mode: "HTML"});
             // showResume(bot, chatId)
             chats[chatId] = chatId;
-            bot.sendMessage(chatId, "I'll send you all buy/sell signal");
-        } else {
-            bot.sendMessage(chatId, "Type /list to show all coins.");
         }
+        bot.sendMessage(chatId, "Type /list to show all coins. /on xxx or /off xxx to track a pair. Exemples: /on_btcusdt /off_btc_usdt");
     });
 
 
