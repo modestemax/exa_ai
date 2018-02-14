@@ -3,7 +3,8 @@ const _ = require('lodash');
 const TelegramBot = require('node-telegram-bot-api');
 const market = require('../market');
 const DEBUG = process.env.NODE_ENV !== 'production';
-const DEFAULT_CHAT_ID = '475514014';
+const MAX_CHAT_ID = '475514014';
+const MAX_CHAT_ID_BITCOIN_INVEST = '-1001169214481';
 // replace the value below with the Telegram token you receive from @BotFather
 // const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
@@ -16,7 +17,7 @@ const bot = new TelegramBot(token, {polling: true});
 // const bot = new TelegramBot(token, {webHook: true});
 
 module.exports.start = function () {
-    const chats = {[DEFAULT_CHAT_ID]: DEFAULT_CHAT_ID};
+    const chats = {[MAX_CHAT_ID]: MAX_CHAT_ID, [MAX_CHAT_ID_BITCOIN_INVEST]: MAX_CHAT_ID_BITCOIN_INVEST};
     // if (DEBUG) {
     //     chats[DEFAULT_CHAT_ID] = DEFAULT_CHAT_ID
     // }
