@@ -5,6 +5,8 @@ const market = require('../market');
 const DEBUG = process.env.NODE_ENV !== 'production';
 const DEFAULT_CHAT_ID = '475514014';
 // replace the value below with the Telegram token you receive from @BotFather
+// const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
+
 const token = !DEBUG ?
     '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU' :
     '496655496:AAFmg9mheE9urDt2oCQDIRL5fXjCpGYiAug';
@@ -14,15 +16,19 @@ const bot = new TelegramBot(token, {polling: true});
 // const bot = new TelegramBot(token, {webHook: true});
 
 module.exports.start = function () {
-    const chats = {};
-    if (DEBUG) {
-        chats[DEFAULT_CHAT_ID] = DEFAULT_CHAT_ID
-    }
+    const chats = {[DEFAULT_CHAT_ID]: DEFAULT_CHAT_ID};
+    // if (DEBUG) {
+    //     chats[DEFAULT_CHAT_ID] = DEFAULT_CHAT_ID
+    // }
 
     debug('starting');
     market.on(market.STALE_EVENT, function () {
         debug('Exa is sillent');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]"));
+    });
+    market.on(market.ALL_AI_ERROR_EVENT, function () {
+        debug('ALL_AI_ERROR_EVENT');
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]"));
     });
 
     market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
@@ -55,7 +61,7 @@ module.exports.start = function () {
         bot.sendMessage(chatId, "You will not receive notification");
     })
 
-    bot.onText(/^\/(?!start|stop|list)(.*)/i, (msg, cmd) => {
+    bot.onText(/^\/(?!start|stop|list)([^@]*).*/i, (msg, cmd) => {
         const chatId = msg.chat.id;
         debug(cmd);
         bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});

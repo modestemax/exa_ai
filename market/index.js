@@ -9,11 +9,12 @@ let staleTimeout;
 const STALE_TIMEOUT = 10e3;
 const DEFAULT_TIMEFRAME = '15m';
 const BUY_SELL_EVENT = 'buy_sell_event';
+const ALL_AI_ERROR_EVENT = 'all_ai_error_event';
 const STALE_EVENT = 'stale';
 let isMarketRunning = false;
 let signals;
 
-module.exports = Object.assign(market, {BUY_SELL_EVENT, STALE_EVENT});
+module.exports = Object.assign(market, {BUY_SELL_EVENT, STALE_EVENT, ALL_AI_ERROR_EVENT});
 
 module.exports.setStatus = async function (signal) {
     isMarketRunning = true;
@@ -37,8 +38,13 @@ module.exports.isMarketRunning = () => isMarketRunning;
 
 function getExaAiSignals() {
     curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        // console.log(body);
-        signals = JSON.parse(body);
+        if (!err) {
+            console.log("got ai_all_signal");
+            signals = JSON.parse(body);
+        } else {
+            market.emit(ALL_AI_ERROR_EVENT);
+            resetSignals()
+        }
         setTimeout(getExaAiSignals, 10e3);
     })
 }
@@ -61,5 +67,9 @@ module.exports.getSignal = function (symbol) {
 module.exports.listSymbol = function () {
     return [].concat(signals.buy, signals.sell).map(i => i.currency);
 };
+
+function resetSignals() {
+    signals = {buy: [], sell: []}
+}
 
 getExaAiSignals();
