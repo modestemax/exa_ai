@@ -13,7 +13,8 @@ const ALL_AI_ERROR_EVENT = 'all_ai_error_event';
 const STALE_EVENT = 'stale';
 let isMarketRunning = false;
 let signals;
-const symbolsTracked = [];
+const symbolsTracked = {};
+const symbolsTrackedNotifyTimeout = {};
 
 module.exports = Object.assign(market, {BUY_SELL_EVENT, STALE_EVENT, ALL_AI_ERROR_EVENT});
 
@@ -84,21 +85,18 @@ function resetSignals() {
 
 
 module.exports.track = function ({symbol, track}) {
-    if (track && !symbolsTracked.includes(symbol)) {
-        symbolsTracked.push(symbol);
-    } else if (!track && symbolsTracked.includes(symbol)) {
-        let index = symbolsTracked.findIndex(s => s === symbol);
-        if (index > -1) {
-            symbolsTracked.splice(index, 1);
-        }
-    }
+    symbolsTracked[symbol] = track;
 };
 
 function trackSymbols() {
     let symbols = listSymbol();
-    symbolsTracked.forEach(symbol => {
+    Object.keys(symbolsTracked).forEach(symbol => {
         if (symbols.includes(symbol)) {
-            market.emit(BUY_SELL_EVENT, getSignal(symbol));
+            if (!symbolsTrackedNotifyTimeout[symbol]) {
+                market.emit(BUY_SELL_EVENT, getSignal(symbol));
+                symbolsTrackedNotifyTimeout[symbol] = true;
+                setTimeout(() => delete symbolsTrackedNotifyTimeout[symbol], 60e3);
+            }
         }
     })
 }
