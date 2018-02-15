@@ -38,18 +38,25 @@ function setStale() {
 module.exports.isMarketRunning = () => isMarketRunning;
 
 
-function getExaAiSignals() {
-    curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        if (!err) {
-            console.log("got ai_all_signal");
-            signals = JSON.parse(body);
-            trackSymbols();
-        } else {
-            market.emit(ALL_AI_ERROR_EVENT);
-            resetSignals()
-        }
-        setTimeout(getExaAiSignals, 10e3);
-    })
+const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignals() {
+    try {
+        curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+            try {
+                if (!err) {
+                    console.log("got ai_all_signal");
+                    signals = JSON.parse(body);
+                    trackSymbols();
+                } else {
+                    market.emit(ALL_AI_ERROR_EVENT);
+                    resetSignals()
+                }
+            } finally {
+                setTimeout(getExaAiSignals, 10e3);
+            }
+        });
+    } catch (ex) {
+        getExaAiSignals();
+    }
 }
 
 const getSignal = module.exports.getSignal = function (symbol) {

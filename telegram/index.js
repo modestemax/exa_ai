@@ -17,10 +17,12 @@ const bot = new TelegramBot(token, {polling: true});
 // const bot = new TelegramBot(token, {webHook: true});
 
 module.exports.start = function () {
-    const chats = {[MAX_CHAT_ID]: MAX_CHAT_ID, [MAX_CHAT_ID_BITCOIN_INVEST]: MAX_CHAT_ID_BITCOIN_INVEST};
-    // if (DEBUG) {
-    //     chats[DEFAULT_CHAT_ID] = DEFAULT_CHAT_ID
-    // }
+    // const chats = {[MAX_CHAT_ID]: MAX_CHAT_ID, [MAX_CHAT_ID_BITCOIN_INVEST]: MAX_CHAT_ID_BITCOIN_INVEST};
+    const chats = {};
+    if (DEBUG) {
+        chats[MAX_CHAT_ID] = MAX_CHAT_ID;
+        chats[MAX_CHAT_ID_BITCOIN_INVEST] = MAX_CHAT_ID_BITCOIN_INVEST;
+    }
 
     debug('starting');
     market.on(market.STALE_EVENT, function () {
@@ -32,12 +34,6 @@ module.exports.start = function () {
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]").catch(_.noop));
     });
 
-    market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
-        debug('action ' + action);
-        Object.keys(chats).forEach(chatId =>
-            bot.sendMessage(chatId, showSignal({action, symbol, raw_date, price}), {parse_mode: "HTML"}).catch(_.noop));
-    });
-
     bot.onText(/\/start/, async (msg) => {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
@@ -46,6 +42,15 @@ module.exports.start = function () {
             await  bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre> Type /list to show all coins`, {parse_mode: "HTML"});
             // showResume(bot, chatId)
             chats[chatId] = chatId;
+            market.on(market.BUY_SELL_EVENT, function ({action, symbol, raw_date, price}) {
+                debug('action ' + action);
+                chats[chatId] && bot.sendMessage(chatId, showSignal({
+                    action,
+                    symbol,
+                    raw_date,
+                    price
+                }), {parse_mode: "HTML"}).catch(_.noop);
+            });
         }
         bot.sendMessage(chatId, "Type /list to show all coins. /on xxx or /off xxx to track a pair. Exemples: /on_btcusdt /off_btc_usdt");
     });
@@ -60,14 +65,14 @@ module.exports.start = function () {
         bot.sendMessage(chatId, "You will not receive notification");
     })
 
-    bot.onText(/^\/(?!start|stop|on|off|list)([^@]*).*/i, (msg, cmd) => {
-        const chatId = msg.chat.id;
-        debug(cmd);
-        bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});
-    })
     bot.onText(/^\/list/i, (msg) => {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, showSymbols(market.listSymbol())/*, {parse_mode: "HTML"}*/);
+    })
+    bot.onText(/^\/exa/i, (msg) => {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, "Restarting Exa");
+        market.getExaAiSignals();
     })
     bot.onText(/^\/(on|off)(.*)/i, (msg, [, status, symbol]) => {
         const chatId = msg.chat.id;
@@ -76,6 +81,12 @@ module.exports.start = function () {
         symbol = _.trim(symbol, ['_', ' ']);
         market.track({symbol, track: status === 'on'});
         bot.sendMessage(chatId, `<pre>${symbol}</pre> tracking ${status}`, {parse_mode: "HTML"});
+    });
+
+    bot.onText(/^\/(?!start|exa|stop|on|off|list)([^@]*).*/i, (msg, cmd) => {
+        const chatId = msg.chat.id;
+        debug(cmd);
+        bot.sendMessage(chatId, showSignal(market.getSignal(cmd[1])), {parse_mode: "HTML"});
     })
 };
 
