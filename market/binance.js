@@ -41,7 +41,7 @@ const balance = module.exports.balance = async function (coin) {
 module.exports.buyMarket = async function buyMarket({symbol, callback = _.noop}) {
     try {
         const [base, quote] = symbol.split('/')
-        const binance = createBinance();
+        binance = binance || createBinance();
         let quantity = await balance(quote);
         const buySymbol = base + quote;
         const side = 'BUY';
@@ -54,14 +54,15 @@ module.exports.buyMarket = async function buyMarket({symbol, callback = _.noop})
         let order = await binance[createOrder]({symbol: buySymbol, side, type, quantity})
         callback(null, createOrder === 'testOrder' ? {info: 'Buy Order placed ' + symbol} : order)
     } catch (ex) {
-        callback(ex)
-        process.nextTick(() => buyMarket({symbol}))
+        callback(ex);
+        if (!/LOT_SIZE/.test(ex.msg))
+            setTimeout(() => buyMarket({symbol}), 500);
     }
 }
 module.exports.sellMarket = async function sellMarket({symbol, callback = _.noop}) {
     try {
-        const [base, quote] = symbol.split('/')
-        const binance = createBinance();
+        const [base, quote] = symbol.split('/');
+        binance = binance || createBinance();
         let quantity = await balance(base);
         const sellSymbol = base + quote;
         const side = 'SELL';
@@ -74,8 +75,9 @@ module.exports.sellMarket = async function sellMarket({symbol, callback = _.noop
         let order = await binance[createOrder]({symbol: sellSymbol, side, type, quantity})
         callback(null, createOrder === 'testOrder' ? {info: 'Sell Order placed ' + symbol} : order)
     } catch (ex) {
-        callback(ex)
-        process.nextTick(() => sellMarket({symbol}))
+        callback(ex);
+        if (!/LOT_SIZE/.test(ex.msg))
+            setTimeout(() => sellMarket({symbol}), 500);
     }
 }
 
