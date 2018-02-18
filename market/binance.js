@@ -9,8 +9,7 @@ const exchange = new ccxt.binance();
 // let SECRET;
 
 
-const appPath = process.env.PWD;
-const apijson = appPath + '/api.json';
+const apijson = '~/.api.json';
 const api = require(apijson);
 
 let APIKEY = api.api_key;

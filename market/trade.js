@@ -5,8 +5,7 @@ const exchange = require('./exchange');
 
 const LAST_BUY_EVENT = 'last_buy_event';
 const LAST_SELL_EVENT = 'last_sell_event';
-const appPath = process.env.PWD;
-const tradejson = appPath + '/trade.json';
+const tradejson = '~/.trade.json';
 const symbolsTraded = require(tradejson);
 
 
