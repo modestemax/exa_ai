@@ -50,12 +50,12 @@ module.exports.start = function () {
         }
     }
 
-    function buyNotifier(chatId, symbol) {
+    function lastBuyNotifier(chatId, symbol) {
         let _symbol = symbol;
         return function ({action, symbol, raw_date, price}) {
             debug('action ' + action);
             _symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() && bot.sendMessage(chatId, signalToText({
-                action: 'TRADE ' + action,
+                action: 'TRADE Last ' + action + ' Signal',
                 symbol,
                 raw_date,
                 price
@@ -63,12 +63,12 @@ module.exports.start = function () {
         }
     }
 
-    function sellNotifier(chatId, symbol) {
+    function lastSellNotifier(chatId, symbol) {
         let _symbol = symbol;
         return function ({action, symbol, raw_date, buyPrice, sellPrice, gain}) {
             debug('action ' + action);
             _symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() && bot.sendMessage(chatId, signalToText({
-                action: 'TRADE ' + action,
+                action: 'TRADE Last ' + action + ' Signal',
                 symbol,
                 raw_date,
                 price: `Buy ${buyPrice} Sell ${sellPrice} Gain ${gain}`
@@ -202,8 +202,8 @@ module.exports.start = function () {
         let activate = status === 'on';
 
         let events = {
-            // 'buy': buyNotifier,
-            // 'sell':sellNotifier,
+            'last_buy_event': lastBuyNotifier,
+            'last_sell_event': lastSellNotifier,
             'buy_order_error': buyOrderErrorNotifier,
             'buy_order_ok': buyOrderNotifier,
             'sell_order_error': sellOrderErrorNotifier,

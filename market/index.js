@@ -120,7 +120,7 @@ const listSymbol = module.exports.listSymbol = function (action) {
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
     return trade.listSymbol()
 };
-const getBalance= module.exports.getBalance=async function () {
+const getBalance = module.exports.getBalance = async function () {
     return trade.getBalance()
 };
 
@@ -132,7 +132,7 @@ const getSymbolFromCurrencyPair = module.exports.getSymbolFromCurrencyPair = fun
         return pair;
 }
 const getBaseQuoteFromSymbol = module.exports.getBaseQuoteFromSymbol = function (pair) {
-   return getSymbolFromCurrencyPair(pair).split('/')
+    return getSymbolFromCurrencyPair(pair).split('/')
 }
 
 function resetSignals() {
@@ -145,6 +145,7 @@ function notify({symbol, rateLimitManager, eventName, signal}) {
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
     if (!rateLimitManager[symbol].timeout && !rateLimitManager[symbol][signal.price]) {
         market.emit(eventName, signal);
+        rateLimitManager[symbol] = {};
         rateLimitManager[symbol].timeout = true;
         rateLimitManager[symbol][signal.price] = signal;
         setTimeout(() => delete rateLimitManager[symbol].timeout, trackNotifyRateLimit);

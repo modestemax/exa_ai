@@ -3,8 +3,8 @@ const _ = require('lodash');
 const fs = require('fs');
 const exchange = require('./exchange');
 
-const BUY_EVENT = 'buy_event';
-const SELL_EVENT = 'sell_event';
+const LAST_BUY_EVENT = 'last_buy_event';
+const LAST_SELL_EVENT = 'last_sell_event';
 const appPath = process.env.PWD;
 const tradejson = appPath + '/trade.json';
 const symbolsTraded = require(tradejson);
@@ -19,7 +19,7 @@ module.exports = function (market) {
     exports.listSymbol = function () {
         return Object.keys(symbolsTraded)
     };
-    exports.getBalance =async function () {
+    exports.getBalance = async function () {
         return exchange.balance()
     };
 
@@ -50,7 +50,7 @@ module.exports = function (market) {
                 if (signal) {
                     market.setExaRateLimit(2e3);//accelerer le check du coté de exa
                     updateTradeSignal({symbol, signal});
-                } else if (buySignal || sellSignal) {
+                } else if ((buySignal || sellSignal) && !(buySignal && sellSignal)) {
                     let balance = await exchange.balance();
                     // debugger;
                     let [base, quote] = market.getBaseQuoteFromSymbol(symbol);
@@ -59,11 +59,11 @@ module.exports = function (market) {
                     let baseBalance = balance[base];
 
                     if (quoteBalance && buySignal) {
-                        market.emit(BUY_EVENT, buySignal);
+                        market.emit(LAST_BUY_EVENT, buySignal);
                     }
 
                     if (baseBalance && sellSignal) {
-                        market.emit(SELL_EVENT, sellSignal);
+                        market.emit(LAST_SELL_EVENT, sellSignal);
                     }
 
                     // if (buySignal && sellSignal && sellSignal.notified < 1) {
@@ -87,7 +87,30 @@ module.exports = function (market) {
     }
 
     function updateTradeSignal({symbol, signal}) {
-        symbolsTraded[symbol] = {[signal.action]: signal}
+        switch (signal.action) {
+            case 'buy':
+                symbolsTraded[symbol] = {[signal.action]: signal};
+                break;
+            case 'sell':
+                let buySignal = {};
+                let sellSignal = signal;
+
+                if (symbolsTraded[symbol] && symbolsTraded[symbol].buy) {
+                    buySignal = symbolsTraded[symbol].buy;
+                } else if (symbolsTraded[symbol] && symbolsTraded[symbol].sell) {
+                    buySignal = symbolsTraded[symbol].sell.buySignal;
+                }
+
+                let buy = sellSignal.buyPrice = buySignal.price;
+                let sell = sellSignal.sellPrice = sellSignal.price;
+                let gain = ((sell - buy) / buy) * 100;
+
+                sellSignal.gain = Math.round(gain * 100) / 100;
+                sellSignal.buySignal = buySignal;
+
+                symbolsTraded[symbol] = {[signal.action]: signal}
+        }
+
     }
 
     function getBuySignal({symbol}) {
@@ -98,7 +121,7 @@ module.exports = function (market) {
         return symbolsTraded[symbol]['sell'];
     }
 
-    market.on(BUY_EVENT, function (signal) {
+    market.on(LAST_BUY_EVENT, function (signal) {
         exchange.buyMarket({
             symbol: signal.symbol,
             callback: (err, order) => {
@@ -111,7 +134,7 @@ module.exports = function (market) {
         })
     });
 
-    market.on(SELL_EVENT, function (signal) {
+    market.on(LAST_SELL_EVENT, function (signal) {
         exchange.sellMarket({
             symbol: signal.symbol,
             callback: (err, order) => {
