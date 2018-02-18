@@ -120,6 +120,9 @@ const listSymbol = module.exports.listSymbol = function (action) {
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
     return trade.listSymbol()
 };
+const getBalance= module.exports.getBalance=async function () {
+    return trade.getBalance()
+};
 
 const getSymbolFromCurrencyPair = module.exports.getSymbolFromCurrencyPair = function (pair) {
     let symbol = pair.match(/(.*)(btc|eth|usdt|bnb)$/i);

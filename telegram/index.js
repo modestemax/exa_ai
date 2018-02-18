@@ -151,6 +151,11 @@ module.exports.start = function () {
         bot.sendMessage(chatId, 'Trade  ' + showSymbols(market.tradeListSymbol('buy')) || 'Nothing'/*, {parse_mode: "HTML"}*/);
     }
 
+    async function balance(msg) {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, _.map(await market.getBalance(), (balance, coin) => `<pre>${coin}: ${balance}</pre>`).join(''), {parse_mode: "HTML"});
+    }
+
     function exa(msg) {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, "Restarting Exa");
@@ -261,29 +266,32 @@ module.exports.start = function () {
         chats[chatId] = chats[chatId] || {};
         message = message.toLowerCase();
         switch (true) {
-            case /start/.test(message):
+            case /^start/.test(message):
                 start(msg)
                 break;
-            case /stop/.test(message):
+            case /^stop/.test(message):
                 stop(msg)
                 break;
-            case /tradelist/.test(message):
+            case /^tradelist/.test(message):
                 tradelist(msg)
                 break;
-            case /list/.test(message):
+            case /^bal/.test(message):
+                balance(msg)
+                break;
+            case /^list/.test(message):
                 list(msg)
                 break;
-            case /exa/.test(message):
+            case /^exa/.test(message):
                 exa(msg)
                 break;
-            case /(?:no)?trade\s*(.*)/.test(message): {
-                let match = message.match(/(?:no)?trade\s*(.*)/);
+            case /^(?:no)?trade\s*(.*)/.test(message): {
+                let match = message.match(/^(?:no)?trade\s*(.*)/);
                 let status = /notrade/.test(message) ? 'off' : 'on';
                 trade(msg, {symbol: match[1], status});
             }
                 break;
-            case /(?:no)?track\s*(.*)/.test(message): {
-                let match = message.match(/(?:no)?track\s*(.*)/);
+            case /^(?:no)?track\s*(.*)/.test(message): {
+                let match = message.match(/^(?:no)?track\s*(.*)/);
                 let status = /notrack/.test(message) ? 'off' : 'on';
                 track(msg, {symbol: match[1], status});
             }
