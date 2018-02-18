@@ -60,3 +60,4 @@ typings/
 .idea/
 
 /bin/api.json
+/bin/trade.json
