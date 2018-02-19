@@ -22,8 +22,8 @@ const bot = new TelegramBot(token, {polling: true});
 module.exports.start = function () {
     // const chats = {[MAX_CHAT_ID]: MAX_CHAT_ID, [MAX_CHAT_ID_BITCOIN_INVEST]: MAX_CHAT_ID_BITCOIN_INVEST};
     const chats = {};
-    if (DEBUG || true) {
-        chats[MAX_CHAT_ID] = MAX_CHAT_ID;
+    chats[MAX_CHAT_ID] = MAX_CHAT_ID;
+    if (!DEBUG) {
         chats[MAX_CHAT_ID_BITCOIN_INVEST] = MAX_CHAT_ID_BITCOIN_INVEST;
     }
 
@@ -80,7 +80,7 @@ module.exports.start = function () {
         let _symbol = symbol;
         return function (order) {
             // debug('action ' + action);
-            let symbol = order.symbol;
+            //  let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
             bot.sendMessage(chatId, JSON.stringify(order));
         }
@@ -90,7 +90,7 @@ module.exports.start = function () {
         let _symbol = symbol;
         return function (order) {
             // debug('action ' + action);
-            let symbol = order.symbol;
+            //let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
             bot.sendMessage(chatId, JSON.stringify(order));
         }
@@ -100,7 +100,7 @@ module.exports.start = function () {
         let _symbol = symbol;
         return function (error) {
             // debug('action ' + action);
-            let symbol = order.symbol;
+            //    let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
             bot.sendMessage(chatId, error);
         }
@@ -110,7 +110,7 @@ module.exports.start = function () {
         let _symbol = symbol;
         return function (error) {
             // debug('action ' + action);
-            let symbol = order.symbol;
+            //  let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
             bot.sendMessage(chatId, error);
         }
@@ -124,9 +124,19 @@ module.exports.start = function () {
             bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre>`, {parse_mode: "HTML"});
             chats[chatId] = {started: true}
         }
-        bot.sendMessage(chatId, `Type /list to show all coins. 
-        /onxxxyyy or /offxxxyyy to track a pair. 
-        Exemples: /on_btcusdt /off_btc_usdt`);
+        bot.sendMessage(chatId,
+            ` /start <i>to start.</i>\n` +
+            ` /stop <i>to stop all.</i>\n` +
+            ` /pair <i>to show pair status.</i>\n` +
+            ` /exa <i>to restart exa ai.</i>\n` +
+            ` /list <i>to show all coins.</i>\n` +
+            '/track_btcusdt <i> to track a pair.</i> \n' +
+            '/notrack_btcusdt <i> to stop track a pair.</i>\n ' +
+            '/trade_xxxyyy <i> to trade a pair.</i>\n' +
+            '/notrade_xxxyyy <i> to trade a pair.</i>\n' +
+            '/tradelist <i> to list currently trade pairs.</i>\n' +
+            '/bal(ance) <i> to list all coins balance.</i>\n',
+            {parse_mode: "HTML"});
 
     }
 
@@ -148,7 +158,7 @@ module.exports.start = function () {
 
     function tradelist(msg) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, 'Trade  ' + showSymbols(market.tradeListSymbol('buy')) || 'Nothing'/*, {parse_mode: "HTML"}*/);
+        bot.sendMessage(chatId, 'Trade  ' + showSymbols(market.tradeListSymbol()) || 'Nothing'/*, {parse_mode: "HTML"}*/);
     }
 
     async function balance(msg) {
@@ -260,8 +270,20 @@ module.exports.start = function () {
         track(msg, {symbol, status})
     }
 
+    async function startTrade() {
+        Object.keys(chats).forEach(async chatId => {
+            await bot.sendMessage(chatId, 'Restarting bot');
+            market.tradeListSymbol().forEach(symbol => {
+                trade({chat: {id: chatId}}, {status: 'on', symbol})
+            })
+
+        })
+    }
+
+    startTrade();
 
     bot.onText(/^\/(.*)/, async (msg, [, message]) => {
+        debug('New Command ', message);
         const chatId = msg.chat.id;
         chats[chatId] = chats[chatId] || {};
         message = message.toLowerCase();

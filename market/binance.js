@@ -9,7 +9,7 @@ const exchange = new ccxt.binance();
 // let SECRET;
 
 
-const apijson = '~/.api.json';
+const apijson = process.env.HOME + '/.api.json';
 const api = require(apijson);
 
 let APIKEY = api.api_key;
@@ -37,46 +37,37 @@ const balance = module.exports.balance = async function (coin) {
     return coin ? balance[coin] || 0 : balance;
 };
 
-module.exports.buyMarket = async function buyMarket({symbol, callback = _.noop}) {
-    try {
-        const [base, quote] = symbol.split('/')
-        binance = binance || createBinance();
-        let quantity = await balance(quote);
-        const buySymbol = base + quote;
-        const side = 'BUY';
-        const type = 'MARKET';
-        let createOrder = 'newOrder';
-        if (process.env.NODE_ENV !== 'production' || true) {
-            createOrder = 'testOrder';
-            quantity = 1
-        }
-        let order = await binance[createOrder]({symbol: buySymbol, side, type, quantity})
-        callback(null, createOrder === 'testOrder' ? {info: 'Buy Order placed ' + symbol} : order)
-    } catch (ex) {
-        callback(ex);
-        if (!/LOT_SIZE/.test(ex.msg))
-            setTimeout(() => buyMarket({symbol}), 500);
-    }
-}
-module.exports.sellMarket = async function sellMarket({symbol, callback = _.noop}) {
+module.exports.buyMarket = function buyMarket({symbol, callback = _.noop, retry = 5}) {
+    createOrder({side: 'BUY', symbol, callback, retry});
+};
+
+module.exports.sellMarket = function sellMarket({symbol, callback = _.noop, retry = 5}) {
+    createOrder({side: 'SELL', symbol, callback, retry});
+};
+
+
+async function createOrder({side, type = 'MARKET', symbol, callback = _.noop, retry = 5}) {
     try {
         const [base, quote] = symbol.split('/');
         binance = binance || createBinance();
         let quantity = await balance(base);
         const sellSymbol = base + quote;
-        const side = 'SELL';
-        const type = 'MARKET';
         let createOrder = 'newOrder';
         if (process.env.NODE_ENV !== 'production' || true) {
             createOrder = 'testOrder';
             quantity = 1
         }
         let order = await binance[createOrder]({symbol: sellSymbol, side, type, quantity})
-        callback(null, createOrder === 'testOrder' ? {info: 'Sell Order placed ' + symbol} : order)
+        setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
     } catch (ex) {
-        callback(ex);
-        if (!/LOT_SIZE/.test(ex.msg))
-            setTimeout(() => sellMarket({symbol}), 500);
+        console.log(ex, retry && 'Retrying');
+        if (/LOT_SIZE/.test(ex.msg)) {
+            setImmediate(() => callback(ex));
+        }
+        if (retry)
+            setTimeout(() => createOrder({symbol, callback, retry: --retry, side, type}), 500);
+        else
+            setImmediate(() => callback(ex));
     }
 }
 

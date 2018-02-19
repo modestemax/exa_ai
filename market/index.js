@@ -46,8 +46,18 @@ function setStale() {
 
 }
 
+function setSignals({buy, sell}) {
+    let allSignals = [].concat(buy, sell).filter(s => s.time > new Date().getTime() - 5 * 60e3);
+    allSignals = _.groupBy(allSignals, 'currency');
+    allSignals = _.mapValues(allSignals, signals => {
+        return _.sortBy(signals, 'time', 'desc')[0]
+    });
+    signals = _.groupBy(allSignals, 'signal')
+}
+
 function restartExaIfStale() {
     if (!exaAIOK) {
+        resetSignals();
         process.nextTick(getExaAiSignals);
         setInterval(() => exaAIOK = false, exaRateLimit * 2)
     }
@@ -71,15 +81,16 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
         curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (!err) {
-                    console.log("got ai_all_signal");
-                    signals = JSON.parse(body);
+                    setSignals(JSON.parse(body));
                     setExaRateLimit()
                     trade.tradeSymbols();
                     trackSymbols();
                     exaAIOK = true;
+                    console.log("got ai_all_signal");
                 } else {
+
                     market.emit(ALL_AI_ERROR_EVENT);
-                    // resetSignals()
+                    console.log("ai_all_signal error");
                     console.log(err)
                 }
             } catch (ex) {
@@ -105,7 +116,7 @@ const getSignals = module.exports.getSignals = function (symbol) {
                 signal: signal.signal,
                 action: signal.signal,
                 symbol: getSymbolFromCurrencyPair(signal.currency),
-                time: [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' '),
+                time: signal.time,
                 raw_date: [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' '),
             }
         });
