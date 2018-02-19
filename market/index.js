@@ -108,7 +108,7 @@ const getSignal = module.exports.getSignal = function (symbol) {
     return getSignals(symbol)[0]
 };
 const getSignals = module.exports.getSignals = function (symbol) {
-    return [].concat(signals.buy, signals.sell).filter(i => new RegExp(symbol).test(i.currency))
+    return [].concat(signals.buy, signals.sell).filter(i => new RegExp(symbol).test(i && i.currency))
         .map(signal => {
             let date = new Date(signal.time);
             return {
