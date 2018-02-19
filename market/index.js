@@ -131,6 +131,9 @@ const listSymbol = module.exports.listSymbol = function (action) {
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
     return trade.listSymbol()
 };
+const getTrades = module.exports.getTrades = function () {
+    return trade.getTrades()
+};
 const getBalance = module.exports.getBalance = async function () {
     return trade.getBalance()
 };

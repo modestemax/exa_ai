@@ -33,6 +33,22 @@ router.get('/set_signal', async function (req, res, next) {
 
 });
 
+router.get('/trade', async function (req, res, next) {
+    try {
+        debug('got request /trade');
+
+        let json = await market.getTrades();
+
+        debug('replied');
+        res.json(json);
+    } catch (ex) {
+        let {message, stack} = ex;
+        console.log(ex);
+        res.status(505).send({message, stack})
+    }
+
+});
+
 router.get('/', function (req, res, next) {
     res.render('exa', {title: 'Exa AI', market});
 });

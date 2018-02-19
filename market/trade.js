@@ -41,6 +41,9 @@ module.exports = function (market) {
     exports.listSymbol = function () {
         return Object.keys(symbolsTraded)
     };
+    exports.getTrades = function () {
+        return symbolsTraded
+    };
     exports.getBalance = async function () {
         return exchange.balance()
     };
