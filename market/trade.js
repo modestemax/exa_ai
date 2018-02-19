@@ -114,7 +114,7 @@ module.exports = function (market) {
             //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
             if ((symbolsTraded[symbol] && symbolsTraded[symbol][signal.action] && symbolsTraded[symbol][signal.action].done)) {
                 //store next same signal
-                symbolsTraded[symbol][signal.action].next = _.compact([].concat(symbolsTraded[symbol][signal.action].next, signal))
+                symbolsTraded[symbol][signal.action].next = signal;
                 return;
             }
 
