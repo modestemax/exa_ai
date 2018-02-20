@@ -147,11 +147,14 @@ const getTrades = module.exports.getTrades = function () {
 const getBalance = module.exports.getBalance = async function () {
     return trade.getBalance()
 };
+const tradeCreateOrder = module.exports.tradeCreateOrder = async function (...args) {
+    return trade.tradeCreateOrder.apply(trade, args)
+};
 
 const getSymbolFromCurrencyPair = module.exports.getSymbolFromCurrencyPair = function (pair) {
-    let symbol = pair && pair.match(/(.*)(btc|eth|usdt|bnb)$/i);
+    let symbol = pair && pair.replace('/', '').match(/(.*)(btc|eth|usdt|bnb)$/i);
     if (symbol) {
-        return (symbol[1] + '/' + symbol[2]).toUpperCase();
+        return (`${symbol[1]}/${symbol[2]}`).toUpperCase();
     } else
         return pair;
 }

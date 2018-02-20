@@ -116,12 +116,12 @@ module.exports.start = function () {
         }
     }
 
-    function start(msg) {
+    async function start(msg) {
         // 'msg' is the received Message from Telegram
         const chatId = msg.chat.id;
         debug('/start from ', msg.from.first_name);
         if (!chats[chatId].started) {
-            bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre>`, {parse_mode: "HTML"});
+            await    bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre>`, {parse_mode: "HTML"});
             chats[chatId] = {started: true}
         }
         bot.sendMessage(chatId,
@@ -136,6 +136,8 @@ module.exports.start = function () {
             '/notrade_xxxyyy <i> to trade a pair.</i>\n' +
             '/tradelist <i> to list currently trade pairs.</i>\n' +
             '/bal(ance) <i> to list all coins balance.</i>\n',
+            '/tradebuypairXX <i> to force buy XX%.</i>\n',
+            '/tradesellpairXX <i> to force sell XX%.</i>\n',
             {parse_mode: "HTML"});
 
     }
@@ -164,6 +166,12 @@ module.exports.start = function () {
     async function balance(msg) {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, _.map(await market.getBalance(), (balance, coin) => `<pre>${coin}: ${balance}</pre>`).join(''), {parse_mode: "HTML"});
+    }
+
+    async function tradeCreateOrder(msg, {symbol, side, ratio}) {
+        const chatId = msg.chat.id;
+        await market.tradeCreateOrder({symbol, side, ratio})
+        bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
     }
 
     function exa(msg) {
@@ -303,6 +311,14 @@ module.exports.start = function () {
             case /^list/.test(message):
                 list(msg)
                 break;
+            case /^trade(buy|sell)(.*?)(\d+)$/.test(message): {
+                let match = message.match(/^trade(buy|sell)(.*?)(\d+)$/);
+                let side = match[1];
+                let symbol = match[2];
+                let ratio = +match[3];
+                tradeCreateOrder(msg, {symbol, side, ratio});
+                break;
+            }
             case /^exa/.test(message):
                 exa(msg)
                 break;
@@ -310,14 +326,14 @@ module.exports.start = function () {
                 let match = message.match(/^(?:no)?trade\s*(.*)/);
                 let status = /notrade/.test(message) ? 'off' : 'on';
                 trade(msg, {symbol: match[1], status});
-            }
                 break;
+            }
             case /^(?:no)?track\s*(.*)/.test(message): {
                 let match = message.match(/^(?:no)?track\s*(.*)/);
                 let status = /notrack/.test(message) ? 'off' : 'on';
                 track(msg, {symbol: match[1], status});
-            }
                 break;
+            }
             default:
                 showSignal(msg, message)
                 break;

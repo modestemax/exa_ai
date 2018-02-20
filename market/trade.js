@@ -47,6 +47,17 @@ module.exports = function (market) {
     exports.getBalance = async function () {
         return exchange.balance()
     };
+    exports.tradeCreateOrder = async function ({symbol, side, ratio}) {
+        return placeOrder({
+            signal: {
+                isManual: true,
+                ratio,
+                action: side,
+                symbol: market.getSymbolFromCurrencyPair(symbol)
+            },
+            ok_event: 'buy_order_ok', nok_event: 'buy_order_error'
+        })
+    };
 
     function startTrade({symbol, chain}) {
         symbolsTraded[symbol] = symbolsTraded[symbol] || {}
@@ -160,10 +171,12 @@ module.exports = function (market) {
         --emit && setTimeout(() => emit100({event, data, emit, delay}), delay);
     }
 
-    function placeOrder({signal, ok_event,ratio=100, nok_event}) {
+    function placeOrder({signal, ok_event, nok_event}) {
         let doAction = signal.action === 'buy' ? 'buyMarket' : 'sellMarket';
+        let {isManual, ratio} = signal;
+
         signal.processing = true;
-        exchange[doAction]({
+        exchange[doAction] && exchange[doAction]({
             symbol: signal.symbol,
             ratio,
             callback: (err, order) => {
@@ -174,7 +187,7 @@ module.exports = function (market) {
                         data: `Error when placing order : ${doAction} ${signal.symbol}\n ${err.toString()}`
                     });
                 } else {
-                    updateTradeSignal({signal, done: true});
+                    isManual || updateTradeSignal({signal, done: true});
                     emit100({event: ok_event, data: order, emit: 1});
                 }
             }

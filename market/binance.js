@@ -37,12 +37,12 @@ const balance = module.exports.balance = async function (coin) {
     return coin ? balance[coin] || 0 : balance;
 };
 
-module.exports.buyMarket = function buyMarket({symbol, callback = _.noop, retry = 5}) {
-    createOrder({side: 'BUY', symbol, callback, retry});
+module.exports.buyMarket = function buyMarket({symbol, ratio, callback = _.noop, retry = 5}) {
+    createOrder({side: 'BUY', ratio, symbol, callback, retry});
 };
 
-module.exports.sellMarket = function sellMarket({symbol, callback = _.noop, retry = 5}) {
-    createOrder({side: 'SELL', symbol, callback, retry});
+module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
+    createOrder({side: 'SELL', ratio, symbol, callback, retry});
 };
 
 
