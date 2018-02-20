@@ -73,7 +73,7 @@ module.exports = function (market) {
                 if (process.env.NODE_ENV !== 'production' && (buySignal || sellSignal)) signal = null;
 
                 if (signal) {
-                    market.setExaRateLimit(5e3);//accelerer le check du coté de exa
+                    market.setExaRateLimit(10e3);//accelerer le check du coté de exa
                     updateTradeSignal({signal});
                 } else if ((buySignal || sellSignal) && !(buySignal && sellSignal)) {
                     let done = (buySignal && buySignal.done) || (sellSignal && sellSignal.done);

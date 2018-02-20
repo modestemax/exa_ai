@@ -18,12 +18,16 @@ let exaRateLimit = EXA_RATE_LIMIT; //must be 1e3 when in trading mode
 let trackNotifyRateLimit = 60e3; //must be 1e3 when in trading mode
 const symbolsTracked = {};
 const symbolsTrackedNotifyTimeout = {};
-let exaAIOK;
+let exaAIOK = -1;
 let exaAINoReplyTimeout;
 
 module.exports = Object.assign(market, {BUY_SELL_EVENT, STALE_EVENT, ALL_AI_ERROR_EVENT});
 
 const trade = require('./trade')(module.exports);
+
+//filter out signals older than 15 min
+const recentSignalFilter = s => s && s.time > new Date().getTime() - 15 * 60e3;
+
 const setExaRateLimit = market.setExaRateLimit = function (limit) {
     exaRateLimit = limit || EXA_RATE_LIMIT
 }
@@ -47,7 +51,8 @@ function setStale() {
 }
 
 function setSignals({buy, sell}) {
-    let allSignals = [].concat(buy, sell).filter(s => s.time > new Date().getTime() - 5 * 60e3);
+    //ne pas prendre les signaux vieux de plus de 15 minutes
+    let allSignals = [].concat(buy, sell).filter(recentSignalFilter);
     allSignals = _.groupBy(allSignals, 'currency');
     allSignals = _.mapValues(allSignals, signals => {
         return _.sortBy(signals, 'time', 'desc')[0]
@@ -56,13 +61,14 @@ function setSignals({buy, sell}) {
 }
 
 function restartExaIfStale() {
-    if (!exaAIOK) {
-        resetSignals();
+    if (exaAIOK < 0) {
+        exaAIOK = 0;
+        // resetSignals();
         process.nextTick(getExaAiSignals);
-        setInterval(() => exaAIOK = false, exaRateLimit * 2)
+        setInterval(() => exaAIOK--, exaRateLimit * 2)
     }
     exaAINoReplyTimeout && clearInterval(exaAINoReplyTimeout);
-    exaAINoReplyTimeout = setInterval(() => !exaAIOK && restartExaIfStale(), exaRateLimit * 3)
+    exaAINoReplyTimeout = setInterval(() => exaAIOK < 0 && restartExaIfStale(), exaRateLimit * 3)
 }
 
 module.exports.isMarketRunning = () => isMarketRunning;
@@ -80,21 +86,21 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
     try {
         curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
-                if (!err) {
+                if (err || !body) {
+                    market.emit(ALL_AI_ERROR_EVENT);
+                    console.log("ai_all_signal error");
+                    console.log(err)
+                } else {
                     setSignals(JSON.parse(body));
                     setExaRateLimit()
                     trade.tradeSymbols();
                     trackSymbols();
-                    exaAIOK = true;
+                    exaAIOK++;
                     console.log("got ai_all_signal");
-                } else {
-
-                    market.emit(ALL_AI_ERROR_EVENT);
-                    console.log("ai_all_signal error");
-                    console.log(err)
                 }
             } catch (ex) {
                 console.log(ex)
+                debugger
             } finally {
                 setTimeout(getExaAiSignals, exaRateLimit);
             }
@@ -108,12 +114,14 @@ const getSignal = module.exports.getSignal = function (symbol) {
     return getSignals(symbol)[0]
 };
 const getSignals = module.exports.getSignals = function (symbol) {
-    return [].concat(signals.buy, signals.sell).filter(i => new RegExp(symbol).test(i && i.currency))
+    return [].concat(signals.buy, signals.sell).filter(recentSignalFilter)
+        .filter(i => new RegExp(symbol).test(i && i.currency))
         .map(signal => {
             let date = new Date(signal.time);
             return {
                 price: signal.price,
                 signal: signal.signal,
+                pair: signal.currency,
                 action: signal.signal,
                 symbol: getSymbolFromCurrencyPair(signal.currency),
                 time: signal.time,
@@ -124,8 +132,9 @@ const getSignals = module.exports.getSignals = function (symbol) {
 };
 
 const listSymbol = module.exports.listSymbol = function (action) {
-    return _.compact([].concat(!action || action === 'buy' ? signals.buy : void 0, !action || action === 'sell' ? signals.sell : void 0))
-        .map(i => i.currency);
+    return _.compact(!action ? [].concat(signals.buy, signals.sell) : [].concat(signals[action]))
+        .filter(recentSignalFilter)
+        .map(i => i && i.currency);
 };
 
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
@@ -139,14 +148,14 @@ const getBalance = module.exports.getBalance = async function () {
 };
 
 const getSymbolFromCurrencyPair = module.exports.getSymbolFromCurrencyPair = function (pair) {
-    let symbol = pair.match(/(.*)(btc|eth|usdt|bnb)$/i);
+    let symbol = pair && pair.match(/(.*)(btc|eth|usdt|bnb)$/i);
     if (symbol) {
         return (symbol[1] + '/' + symbol[2]).toUpperCase();
     } else
         return pair;
 }
 const getBaseQuoteFromSymbol = module.exports.getBaseQuoteFromSymbol = function (pair) {
-    return getSymbolFromCurrencyPair(pair).split('/')
+    return pair && getSymbolFromCurrencyPair(pair).split('/')
 }
 
 function resetSignals() {
