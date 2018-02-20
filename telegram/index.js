@@ -290,11 +290,16 @@ module.exports.start = function () {
 
     startTrade();
 
+    function isAdmin(msg) {
+        return /^modestemax|valkeys|SteveMichel$/.test(msg.from.username)
+    }
+
     bot.onText(/^\/(.*)/, async (msg, [, message]) => {
         debug('New Command ', message);
         const chatId = msg.chat.id;
         chats[chatId] = chats[chatId] || {};
         message = message.toLowerCase();
+
         switch (true) {
             case /^start/.test(message):
                 start(msg)
@@ -302,16 +307,16 @@ module.exports.start = function () {
             case /^stop/.test(message):
                 stop(msg)
                 break;
-            case /^tradelist/.test(message):
+            case /^tradelist/.test(message) && isAdmin(msg):
                 tradelist(msg)
                 break;
-            case /^bal/.test(message):
+            case /^bal/.test(message) && isAdmin(msg):
                 balance(msg)
                 break;
             case /^list/.test(message):
                 list(msg)
                 break;
-            case /^trade(buy|sell)(.*?)(\d+)$/.test(message): {
+            case /^trade(buy|sell)(.*?)(\d+)$/.test(message) && isAdmin(msg): {
                 let match = message.match(/^trade(buy|sell)(.*?)(\d+)$/);
                 let side = match[1];
                 let symbol = match[2];
@@ -319,10 +324,10 @@ module.exports.start = function () {
                 tradeCreateOrder(msg, {symbol, side, ratio});
                 break;
             }
-            case /^exa/.test(message):
+            case /^exa/.test(message) && isAdmin(msg):
                 exa(msg)
                 break;
-            case /^(?:no)?trade\s*(.*)/.test(message): {
+            case /^(?:no)?trade\s*(.*)/.test(message) && isAdmin(msg): {
                 let match = message.match(/^(?:no)?trade\s*(.*)/);
                 let status = /notrade/.test(message) ? 'off' : 'on';
                 trade(msg, {symbol: match[1], status});
