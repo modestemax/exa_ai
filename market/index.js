@@ -53,6 +53,7 @@ function setStale() {
 function setSignals({buy, sell}) {
     //ne pas prendre les signaux vieux de plus de 15 minutes
     let allSignals = [].concat(buy, sell).filter(recentSignalFilter);
+    allSignals = _.sortBy(allSignals, 'currency');
     allSignals = _.groupBy(allSignals, 'currency');
     allSignals = _.mapValues(allSignals, signals => {
         return _.sortBy(signals, 'time', 'desc')[0]

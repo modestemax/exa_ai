@@ -19,7 +19,7 @@ exchange.apiKey = APIKEY;
 exchange.secret = SECRET;
 
 
-let binance;
+let binance, binanceBusy;
 module.exports.setKey = function ({api_key, secret}) {
     [APIKEY, SECRET] = [api_key, secret];
     exchange.apiKey = APIKEY;
@@ -48,6 +48,8 @@ module.exports.sellMarket = function sellMarket({symbol, callback = _.noop, retr
 
 async function createOrder({side, type = 'MARKET', symbol, callback = _.noop, retry = 5}) {
     try {
+        binanceBusy && setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
+        binanceBusy = true;
         const [base, quote] = symbol.split('/');
         binance = binance || createBinance();
         let quantity = await balance(base);
@@ -65,9 +67,11 @@ async function createOrder({side, type = 'MARKET', symbol, callback = _.noop, re
             setImmediate(() => callback(ex));
         }
         if (retry)
-            setTimeout(() => createOrder({symbol, callback, retry: --retry, side, type}), 500);
+            setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         else
             setImmediate(() => callback(ex));
+    } finally {
+        binanceBusy = false;
     }
 }
 
