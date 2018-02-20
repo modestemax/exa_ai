@@ -170,12 +170,13 @@ function resetSignals() {
 function notify({symbol, rateLimitManager, eventName, signal}) {
     signal = signal || getSignal(symbol);
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
-    if (!rateLimitManager[symbol].timeout && !rateLimitManager[symbol][signal.price]) {
+    if (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price) {
         market.emit(eventName, signal);
         rateLimitManager[symbol] = {};
-        rateLimitManager[symbol].timeout = true;
-        rateLimitManager[symbol][signal.price] = signal;
-        setTimeout(() => delete rateLimitManager[symbol].timeout, trackNotifyRateLimit);
+        rateLimitManager[symbol].lastPrice = signal.price;
+        rateLimitManager[symbol].wait = true;
+        rateLimitManager[symbol].signal = signal;
+        setTimeout(() => delete rateLimitManager[symbol].wait, trackNotifyRateLimit);
     }
 }
 
