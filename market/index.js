@@ -15,7 +15,7 @@ let isMarketRunning = false;
 let signals = {};
 const EXA_RATE_LIMIT = 10e3; //must be 1e3 when in trading mode
 let exaRateLimit = EXA_RATE_LIMIT; //must be 1e3 when in trading mode
-let trackNotifyRateLimit = 5 * 60e3; //must be 1e3 when in trading mode
+const trackNotifyRateLimit = 5 * 60e3; //must be 1e3 when in trading mode
 const symbolsTracked = {};
 const symbolsTrackedNotifyTimeout = {};
 let exaAIOK = -1;
@@ -66,7 +66,7 @@ function restartExaIfStale() {
         exaAIOK = 0;
         // resetSignals();
         process.nextTick(getExaAiSignals);
-        setInterval(() => exaAIOK--, exaRateLimit * 2)
+        setInterval(() => (exaAIOK--, console.log('ExaAIOK Status = ', exaAIOK)), exaRateLimit * 2)
     }
     exaAINoReplyTimeout && clearInterval(exaAINoReplyTimeout);
     exaAINoReplyTimeout = setInterval(() => exaAIOK < 0 && restartExaIfStale(), exaRateLimit * 3)
@@ -88,7 +88,7 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
         curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (err || !body) {
-                    market.emit(ALL_AI_ERROR_EVENT);
+                    market.emit(ALL_AI_ERROR_EVENT, err ? err : "Empty Response from Exa");
                     console.log("ai_all_signal error");
                     console.log(err)
                 } else {
@@ -170,14 +170,14 @@ function resetSignals() {
 function notify({symbol, rateLimitManager, eventName, signal}) {
     signal = signal || getSignal(symbol);
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
-    if (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price) {
+    if (signal && (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price)) {
         market.emit(eventName, signal);
         rateLimitManager[symbol] = {};
         rateLimitManager[symbol].lastPrice = signal.price;
         rateLimitManager[symbol].wait = true;
         rateLimitManager[symbol].signal = signal;
         clearTimeout(rateLimitManager[symbol].timeout);
-        rateLimitManager[symbol].timeout = setTimeout(() => delete rateLimitManager[symbol].wait, trackNotifyRateLimit);
+        rateLimitManager[symbol].timeout = setTimeout(() => (rateLimitManager[symbol].wait = false), trackNotifyRateLimit);
     }
 }
 

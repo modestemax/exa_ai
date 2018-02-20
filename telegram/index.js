@@ -32,9 +32,9 @@ module.exports.start = function () {
         debug('Exa is sillent');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]").catch(_.noop));
     });
-    market.on(market.ALL_AI_ERROR_EVENT, function () {
+    market.on(market.ALL_AI_ERROR_EVENT, function (data) {
         debug('ALL_AI_ERROR_EVENT');
-        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]").catch(_.noop));
+        Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]\n" + data.toString()).catch(_.noop));
     });
 
     function buySellSignalNotifier(chatId, symbol) {

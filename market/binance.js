@@ -27,14 +27,17 @@ module.exports.setKey = function ({api_key, secret}) {
 };
 
 const balance = module.exports.balance = async function (coin) {
-
-    await exchange.loadMarkets();
-    const bal = await  exchange.fetchBalance();
-    const balance = _.reduce(bal.free, (balance, val, key) => {
-        val && (balance[key] = val)
-        return balance
-    }, {});
-    return coin ? balance[coin] || 0 : balance;
+    try {
+        await exchange.loadMarkets();
+        const bal = await  exchange.fetchBalance();
+        const balance = _.reduce(bal.free, (balance, val, key) => {
+            val && (balance[key] = val)
+            return balance
+        }, {});
+        return coin ? balance[coin] || 0 : balance;
+    } catch (ex) {
+        return {_msg_: "try again /bal", error: ex.toString()}
+    }
 };
 
 module.exports.buyMarket = function buyMarket({symbol, ratio, callback = _.noop, retry = 5}) {
