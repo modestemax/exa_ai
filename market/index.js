@@ -15,7 +15,7 @@ let isMarketRunning = false;
 let signals = {};
 const EXA_RATE_LIMIT = 10e3; //must be 1e3 when in trading mode
 let exaRateLimit = EXA_RATE_LIMIT; //must be 1e3 when in trading mode
-let trackNotifyRateLimit = 60e3; //must be 1e3 when in trading mode
+let trackNotifyRateLimit = 5 * 60e3; //must be 1e3 when in trading mode
 const symbolsTracked = {};
 const symbolsTrackedNotifyTimeout = {};
 let exaAIOK = -1;
@@ -176,7 +176,8 @@ function notify({symbol, rateLimitManager, eventName, signal}) {
         rateLimitManager[symbol].lastPrice = signal.price;
         rateLimitManager[symbol].wait = true;
         rateLimitManager[symbol].signal = signal;
-        setTimeout(() => delete rateLimitManager[symbol].wait, trackNotifyRateLimit);
+        clearTimeout(rateLimitManager[symbol].timeout);
+        rateLimitManager[symbol].timeout = setTimeout(() => delete rateLimitManager[symbol].wait, trackNotifyRateLimit);
     }
 }
 
