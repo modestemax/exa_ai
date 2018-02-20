@@ -76,9 +76,10 @@ module.exports = function (market) {
                     market.setExaRateLimit(10e3);//accelerer le check du coté de exa
                     updateTradeSignal({signal});
                 } else if ((buySignal || sellSignal) && !(buySignal && sellSignal)) {
-                    let done = (buySignal && buySignal.done) || (sellSignal && sellSignal.done);
-                    let processing = (buySignal && buySignal.processing) || (sellSignal && sellSignal.processing);
+                    let processingSignal = buySignal || sellSignal;
+                    let {done, processing} = processingSignal;
                     if (!(done || processing)) {
+                        processingSignal.processing = true;
                         let balance = await exchange.balance();
                         let [base, quote] = market.getBaseQuoteFromSymbol(symbol);
 
@@ -154,11 +155,9 @@ module.exports = function (market) {
         return symbolsTraded[symbol]['sell'];
     }
 
-    function emit100({event, data, emit = 100, delay = 10e3}) {
-        setTimeout(() => {
-            emit && market.emit(event, data);
-            emit--;
-        }, delay);
+    function emit100({event, data, emit = 5, delay = 10e3}) {
+        market.emit(event, data);
+        --emit && setTimeout(() => emit100({event, data, emit, delay}), delay);
     }
 
     function placeOrder({signal, ok_event, nok_event}) {
@@ -175,7 +174,7 @@ module.exports = function (market) {
                     });
                 } else {
                     updateTradeSignal({signal, done: true});
-                    emit100({event: ok_event, data: order, emit: 3, delay: 30e3});
+                    emit100({event: ok_event, data: order, emit: 1});
                 }
             }
         })
