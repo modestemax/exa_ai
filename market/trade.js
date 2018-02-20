@@ -107,7 +107,7 @@ module.exports = function (market) {
 
     function updateTradeSignal({done, signal}) {
         try {
-            let symbol = signal.symbol.replace('/', '').toLowerCase();
+            let symbol = signal.pair;
             if (done) {
                 signal.done = true;
                 return;
