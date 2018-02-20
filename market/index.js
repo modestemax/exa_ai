@@ -78,8 +78,8 @@ module.exports.track = function ({symbol, activate}) {
     activate ? symbolsTracked[symbol] = symbolsTracked[symbol] || {} : delete symbolsTracked[symbol];
 };
 
-module.exports.trade = function ({symbol, activate}) {
-    trade.trade({symbol, activate});
+module.exports.trade = function (...args) {
+    trade.trade.apply(trade,args);
 };
 
 
