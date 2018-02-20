@@ -46,20 +46,21 @@ module.exports.sellMarket = function sellMarket({symbol, callback = _.noop, retr
 };
 
 
-async function createOrder({side, type = 'MARKET', symbol, callback = _.noop, retry = 5}) {
+async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback = _.noop, retry = 5}) {
     try {
         binanceBusy && setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         binanceBusy = true;
         const [base, quote] = symbol.split('/');
         binance = binance || createBinance();
         let quantity = await balance(base);
-        const sellSymbol = base + quote;
+        quantity = quantity * ratio / 100;
+        const baseQuote = base + quote;
         let createOrder = 'newOrder';
         if (process.env.NODE_ENV !== 'production' || true) {
             createOrder = 'testOrder';
             quantity = 1
         }
-        let order = await binance[createOrder]({symbol: sellSymbol, side, type, quantity})
+        let order = await binance[createOrder]({symbol: baseQuote, side, type, quantity})
         setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
     } catch (ex) {
         console.log(ex, retry && 'Retrying');

@@ -160,11 +160,12 @@ module.exports = function (market) {
         --emit && setTimeout(() => emit100({event, data, emit, delay}), delay);
     }
 
-    function placeOrder({signal, ok_event, nok_event}) {
+    function placeOrder({signal, ok_event,ratio=100, nok_event}) {
         let doAction = signal.action === 'buy' ? 'buyMarket' : 'sellMarket';
         signal.processing = true;
         exchange[doAction]({
             symbol: signal.symbol,
+            ratio,
             callback: (err, order) => {
                 signal.processing = false;
                 if (err) {
