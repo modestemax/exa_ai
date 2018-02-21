@@ -79,7 +79,7 @@ module.exports.track = function ({symbol, activate}) {
 };
 
 module.exports.trade = function (...args) {
-    trade.trade.apply(trade,args);
+    trade.trade.apply(trade, args);
 };
 
 
@@ -138,6 +138,9 @@ const listSymbol = module.exports.listSymbol = function (action) {
         .map(i => i && i.currency);
 };
 
+const trackListSymbol = module.exports.trackListSymbol = function () {
+    return _.keys(symbolsTracked)
+};
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
     return trade.listSymbol()
 };
@@ -172,11 +175,13 @@ function notify({symbol, rateLimitManager, eventName, signal}) {
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
     if (signal && (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price)) {
         market.emit(eventName, signal);
+        clearTimeout(rateLimitManager[symbol].timeout);
+
         rateLimitManager[symbol] = {};
         rateLimitManager[symbol].lastPrice = signal.price;
         rateLimitManager[symbol].wait = true;
         rateLimitManager[symbol].signal = signal;
-        clearTimeout(rateLimitManager[symbol].timeout);
+
         rateLimitManager[symbol].timeout = setTimeout(() => (rateLimitManager[symbol].wait = false), trackNotifyRateLimit);
     }
 }
