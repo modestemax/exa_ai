@@ -34,12 +34,13 @@ module.exports = function (market) {
         fs.writeFileSync(tradejson, JSON.stringify(symbolsTraded))
     }
 
-    exports.trade = function ({symbol, activate, chain}) {
-        activate ? startTrade({symbol, chain}) : stopTrade({symbol});
+    exports.trade = function (...args) {
+        let [{activate}] = args;
+        activate ? startTrade.apply(null, args) : stopTrade.apply(null, args);
         saveTradeSignals();
     };
     exports.listSymbol = function () {
-        return Object.keys(symbolsTraded)
+        return _.keys(symbolsTraded)
     };
     exports.getTrades = function () {
         return symbolsTraded
@@ -59,9 +60,9 @@ module.exports = function (market) {
         })
     };
 
-    function startTrade({symbol, chain}) {
-        symbolsTraded[symbol] = symbolsTraded[symbol] || {}
-
+    function startTrade({symbol, ratio, chain}) {
+        symbolsTraded[symbol] = symbolsTraded[symbol] || {symbol, ratio};
+        symbolsTraded[symbol].ratio = ratio;
     }
 
     function resetTrade({symbol, chain}) {
@@ -69,7 +70,7 @@ module.exports = function (market) {
     }
 
     function stopTrade({symbol, chain}) {
-        delete symbolsTraded[symbol]
+        (symbol ? [symbol] : _.keys(symbolsTraded)).forEach(symbol => delete symbolsTraded[symbol]);
     }
 
 
@@ -113,7 +114,7 @@ module.exports = function (market) {
     };
 
     function getSymbolsInTrade() {
-        return Object.keys(symbolsTraded)
+        return _.keys(symbolsTraded)
     }
 
     function updateTradeSignal({done, signal}) {
@@ -132,7 +133,9 @@ module.exports = function (market) {
 
             switch (signal.action) {
                 case 'buy':
-                    symbolsTraded[symbol] = {[signal.action]: signal};
+                    let ratio = symbolsTraded[symbol].ratio;
+                    signal.ratio = ratio;
+                    symbolsTraded[symbol] = {[signal.action]: signal, ratio};
                     break;
                 case 'sell':
                     let buySignal = {};

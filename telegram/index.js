@@ -130,10 +130,11 @@ module.exports.start = function () {
             ` /pair <i>to show pair status.</i>\n` +
             ` /exa <i>to restart exa ai.</i>\n` +
             ` /list <i>to show all coins.</i>\n` +
-            '/track_btcusdt <i> to track a pair.</i> \n' +
-            '/notrack_btcusdt <i> to stop track a pair.</i>\n ' +
-            '/trade_xxxyyy <i> to trade a pair.</i>\n' +
-            '/notrade_xxxyyy <i> to trade a pair.</i>\n' +
+            '/trackxxxyyy <i> to track a pair.</i> \n' +
+            '/notrack(xxxyyy)<i> to stop track a pair.</i>\n ' +
+            '/tracklist <i> to list currently tracked pairs.</i>\n' +
+            '/tradexxxyyyratio <i> to traded a pair.</i>\n' +
+            '/notrade(xxxyyy) <i> to trade a pair.</i>\n' +
             '/tradelist <i> to list currently trade pairs.</i>\n' +
             '/bal(ance) <i> to list all coins balance.</i>\n',
             '/tradebuypairXX <i> to force buy XX%.</i>\n',
@@ -158,9 +159,14 @@ module.exports.start = function () {
         bot.sendMessage(chatId, 'Sell  ' + showSymbols(market.listSymbol('sell')) || 'Nothing'/*, {parse_mode: "HTML"}*/);
     }
 
-    function tradelist(msg) {
+    function tradeList(msg) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, 'Trade  ' + showSymbols(market.tradeListSymbol()) || 'Nothing'/*, {parse_mode: "HTML"}*/);
+        bot.sendMessage(chatId, 'Trade  ' + showSymbols(_.values(market.getTrades()).map(t => t.symbol + ' ' + t.ratio + '%\n')) || 'Nothing'/*, {parse_mode: "HTML"}*/);
+    }
+
+    function trackList(msg) {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, 'Track  ' + showSymbols(market.trackListSymbol()) || 'Nothing'/*, {parse_mode: "HTML"}*/);
     }
 
     async function balance(msg) {
@@ -180,13 +186,16 @@ module.exports.start = function () {
         market.getExaAiSignals();
     }
 
-    function track(msg, {status, symbol}) {
+    async function track(msg, {status, symbol}) {
         const chatId = msg.chat.id;
         // let status = cmd[1];
         // let symbol = cmd[2];
         let buy_sell_signal_handler;
         //  symbol = _.trim(symbol, ['_', ' ']);
         let activate = status === 'on';
+        if (activate && !symbol) {
+            return await bot.sendMessage(chatId, 'Specifiy the symbol to track');
+        }
         buy_sell_signal_handler = _.get(chats[chatId].buy_sell_signal_handler, symbol);
         if (activate) {
             if (!buy_sell_signal_handler) {
@@ -197,12 +206,15 @@ module.exports.start = function () {
             }
             market.track({symbol, activate});
         } else {
-
-            buy_sell_signal_handler && market.removeListener(market.BUY_SELL_EVENT, buy_sell_signal_handler)
-            _.set(chats[chatId].buy_sell_signal_handler, symbol, null)
+            _.forEach(symbol ? [symbol] : _.keys(chats[chatId].buy_sell_signal_handler), symbol => {
+                buy_sell_signal_handler = _.get(chats[chatId].buy_sell_signal_handler, symbol);
+                buy_sell_signal_handler && market.removeListener(market.BUY_SELL_EVENT, buy_sell_signal_handler);
+                _.set(chats[chatId].buy_sell_signal_handler, symbol, null)
+            });
         }
 
-        bot.sendMessage(chatId, `<pre>${symbol}</pre> tracking ${status}`, {parse_mode: "HTML"});
+
+        bot.sendMessage(chatId, `<pre>${symbol || 'All'}</pre> tracking ${status}`, {parse_mode: "HTML"});
 
     }
 
@@ -214,11 +226,13 @@ module.exports.start = function () {
             : bot.sendMessage(chatId, signalToText(market.getSignal(symbol)), {parse_mode: "HTML"});
     }
 
-    async function trade(msg, {status, symbol}) {
+    async function trade(msg, {status, ratio, symbol}) {
         const chatId = msg.chat.id;
 
         let activate = status === 'on';
-
+        if (activate && !ratio) {
+            return await bot.sendMessage(chatId, 'Specifiy the ratio of amount to trade');
+        }
         let events = {
             'last_buy_event': lastBuyNotifier,
             'last_sell_event': lastSellNotifier,
@@ -228,19 +242,20 @@ module.exports.start = function () {
             'sell_order_ok': sellOrderNotifier
         };
         Object.keys(events).forEach(event => {
-            let handler = _.get(chats[chatId][event], symbol);
-            if (activate) {
-                if (!handler) {
-                    handler = events[event](chatId, symbol);
-                    market.on(event, handler);
-                    chats[chatId][event] = _.extend({}, chats[chatId][event], {[symbol]: handler});
+                let handler = _.get(chats[chatId][event], symbol);
+                if (activate) {
+                    if (!handler) {
+                        handler = events[event](chatId, symbol);
+                        market.on(event, handler);
+                        chats[chatId][event] = _.extend({}, chats[chatId][event], {[symbol]: handler});
+                    }
                 } else {
-                    handler = _.get(chats[chatId][event], symbol);
+                    let handler = _.get(chats[chatId][event], symbol);
                     handler && market.removeListener(event, handler)
                     _.set(chats[chatId][event], symbol, null)
                 }
             }
-        });
+        );
 
 //         let buy_handler = _.get(chats[chatId].buy_handler, symbol);
 //         let sell_handler = _.get(chats[chatId].sell_handler, symbol);
@@ -272,17 +287,16 @@ module.exports.start = function () {
 //             sell_handler && market.removeListener(market.sell_handler, sell_handler)
 //             _.set(chats[chatId].sell_handler, symbol, null)
 //         }
-
-        await bot.sendMessage(chatId, `<pre>${symbol}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
-        market.trade({symbol, activate});
+        market.trade({symbol, ratio, activate});
         track(msg, {symbol, status})
+        bot.sendMessage(chatId, `<pre>${symbol}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
     }
 
     async function startTrade() {
         Object.keys(chats).forEach(async chatId => {
             await bot.sendMessage(chatId, 'Restarting bot');
-            market.tradeListSymbol().forEach(symbol => {
-                trade({chat: {id: chatId}}, {status: 'on', symbol})
+            _.values(market.getTrades()).forEach(tradeArgs => {
+                trade({chat: {id: chatId}}, {status: 'on', symbol: tradeArgs.symbol, ratio: tradeArgs.ratio})
             })
 
         })
@@ -294,54 +308,61 @@ module.exports.start = function () {
         return /^modestemax|valkeys|SteveMichel$/.test(msg.from.username)
     }
 
-    bot.onText(/^\/(.*)/, async (msg, [, message]) => {
-        debug('New Command ', message);
+    bot.onText(/^\/([^@]+)(@max24bot)?$/i, async (msg, [, message]) => {
         const chatId = msg.chat.id;
-        chats[chatId] = chats[chatId] || {};
-        message = message.toLowerCase();
+        try {
+            debug('New Command ', message);
+            chats[chatId] = chats[chatId] || {};
+            message = message.toLowerCase();
 
-        switch (true) {
-            case /^start/.test(message):
-                start(msg)
-                break;
-            case /^stop/.test(message):
-                stop(msg)
-                break;
-            case /^tradelist/.test(message) && isAdmin(msg):
-                tradelist(msg)
-                break;
-            case /^bal/.test(message) && isAdmin(msg):
-                balance(msg)
-                break;
-            case /^list/.test(message):
-                list(msg)
-                break;
-            case /^trade(buy|sell)(.*?)(\d+)$/.test(message) && isAdmin(msg): {
-                let match = message.match(/^trade(buy|sell)(.*?)(\d+)$/);
-                let side = match[1];
-                let symbol = match[2];
-                let ratio = +match[3];
-                tradeCreateOrder(msg, {symbol, side, ratio});
-                break;
+            switch (true) {
+                case /^start/.test(message):
+                    start(msg)
+                    break;
+                case /^stop/.test(message):
+                    stop(msg)
+                    break;
+                case /^tradelist/.test(message) && isAdmin(msg):
+                    tradeList(msg)
+                    break;
+                case /^tracklist/.test(message):
+                    trackList(msg)
+                    break;
+                case /^bal/.test(message) && isAdmin(msg):
+                    balance(msg)
+                    break;
+                case /^list/.test(message):
+                    list(msg)
+                    break;
+                case /^trade(buy|sell)(.*?)\s*(\d+)$/.test(message) && isAdmin(msg): {
+                    let match = message.match(/^trade(buy|sell)(.*?)\s*(\d+)$/);
+                    let side = match[1];
+                    let symbol = match[2];
+                    let ratio = +match[3];
+                    tradeCreateOrder(msg, {symbol, side, ratio});
+                    break;
+                }
+                case /^exa/.test(message) && isAdmin(msg):
+                    exa(msg)
+                    break;
+                case /^(?:no)?trade\s*([\d\w]+[^\d]+)?\s*(\d*)$/.test(message) && isAdmin(msg): {
+                    let match = message.match(/^(?:no)?trade\s*([\d\w]+[^\d]+)?\s*(\d*)$/);
+                    let status = /notrade/.test(message) ? 'off' : 'on';
+                    trade(msg, {symbol: match[1], ratio: +match[2], status});
+                    break;
+                }
+                case /^(?:no)?track\s*(.*)/.test(message): {
+                    let match = message.match(/^(?:no)?track\s*(.*)/);
+                    let status = /notrack/.test(message) ? 'off' : 'on';
+                    track(msg, {symbol: match[1], status});
+                    break;
+                }
+                default:
+                    showSignal(msg, message)
+                    break;
             }
-            case /^exa/.test(message) && isAdmin(msg):
-                exa(msg)
-                break;
-            case /^(?:no)?trade\s*(.*)/.test(message) && isAdmin(msg): {
-                let match = message.match(/^(?:no)?trade\s*(.*)/);
-                let status = /notrade/.test(message) ? 'off' : 'on';
-                trade(msg, {symbol: match[1], status});
-                break;
-            }
-            case /^(?:no)?track\s*(.*)/.test(message): {
-                let match = message.match(/^(?:no)?track\s*(.*)/);
-                let status = /notrack/.test(message) ? 'off' : 'on';
-                track(msg, {symbol: match[1], status});
-                break;
-            }
-            default:
-                showSignal(msg, message)
-                break;
+        } catch (ex) {
+            await bot.sendMessage(chatId, 'Error\n' + ex)
         }
     })
 

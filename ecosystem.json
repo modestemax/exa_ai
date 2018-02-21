@@ -14,7 +14,9 @@
         "PORT": 3000,
         "DEBUG": "app:*",
         "NODE_ENV": "production"
-      }
+      },
+      "out_file": "/dev/null",
+      "error_file": "/dev/null"
     }
   ],
   "deploy": {
