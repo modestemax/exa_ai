@@ -135,7 +135,7 @@ module.exports = function (market) {
                 case 'buy':
                     let ratio = symbolsTraded[symbol].ratio;
                     signal.ratio = ratio;
-                    symbolsTraded[symbol] = {[signal.action]: signal, ratio};
+                    symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio};
                     break;
                 case 'sell':
                     let buySignal = {};
@@ -154,7 +154,7 @@ module.exports = function (market) {
                     sellSignal.gain = Math.round(gain * 100) / 100;
                     sellSignal.buySignal = buySignal;
 
-                    symbolsTraded[symbol] = {[signal.action]: signal}
+                    symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
             }
         } finally {
             saveTradeSignals();
