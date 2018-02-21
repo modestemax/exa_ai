@@ -31,7 +31,8 @@ const balance = module.exports.balance = async function (coin) {
         await exchange.loadMarkets();
         const bal = await  exchange.fetchBalance();
         const balance = _.reduce(bal.free, (balance, val, key) => {
-            val && (balance[key] = val)
+            /trx/i.test(key) && (val -= 4088);
+            val && (balance[key] = val);
             return balance
         }, {});
         return coin ? balance[coin] || 0 : balance;
