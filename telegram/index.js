@@ -289,7 +289,7 @@ module.exports.start = function () {
 //         }
         market.trade({symbol, ratio, activate});
         track(msg, {symbol, status})
-        bot.sendMessage(chatId, `<pre>${symbol}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `<pre>${symbol||'ALL'}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
     }
 
     async function startTrade() {
