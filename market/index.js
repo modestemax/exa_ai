@@ -82,18 +82,52 @@ module.exports.trade = function (...args) {
     trade.trade.apply(trade, args);
 };
 
+let temps = 0, price = 0.028883;
+const curl_get = (url, callback) => {
+    let currency = 'testbtc';
+    price += .00001;
+    temps++;
+    switch (true) {
+        case temps < 3:
+            return callback(null, null, JSON.stringify({
+                buy: [{
+                    "time": new Date().getTime(),
+                    "price": price,
+                    "signal": "buy",
+                    currency
+                }]
+            }))
+        case temps < 5:
+            return callback(null, null, "");
+        case temps < 8:
+            return callback(null, null, JSON.stringify({
+                sell: [{
+                    "time": new Date().getTime(),
+                    "price": price + price * 5 / 100,
+                    "signal": "sell",
+                    currency
+                }]
+            }))
+        case temps < 10:
+            return callback(null, null, "");
+
+        default:
+            temps = 0;
+    }
+}
 
 const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignals() {
     try {
+        // curl_get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
         curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
-                if (err || !body) {
-                    market.emit(ALL_AI_ERROR_EVENT, err ? err : "Empty Response from Exa");
+                if (err) {
+                    market.emit(ALL_AI_ERROR_EVENT, err);
                     console.log("ai_all_signal error");
                     console.log(err)
                 } else {
-                    setSignals(JSON.parse(body));
-                    setExaRateLimit()
+                    body ? setSignals(JSON.parse(body)) : resetSignals();
+                    setExaRateLimit();
                     trade.tradeSymbols();
                     trackSymbols();
                     exaAIOK++;

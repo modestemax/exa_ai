@@ -71,7 +71,7 @@ module.exports.start = function () {
                 action: 'TRADE Last ' + action + ' Signal',
                 symbol,
                 raw_date,
-                price: `Buy ${buyPrice} Sell ${sellPrice} Gain ${gain}`
+                price: `\nBuy ${buyPrice} \nSell ${sellPrice} \nGain ${gain}`
             }), {parse_mode: "HTML"});
         }
     }
@@ -93,6 +93,16 @@ module.exports.start = function () {
             //let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
             bot.sendMessage(chatId, JSON.stringify(order));
+        }
+    }
+
+    function gainNotifier(chatId, symbol) {
+        let _symbol = symbol;
+        return function ({symbol, buyPrice, sellPrice, gain}) {
+            // debug('action ' + action);
+            //let symbol = order.symbol;
+            //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
+            bot.sendMessage(chatId, `<b>Trade Result</b>  /${symbol}\nBuy ${buyPrice}\nSell ${sellPrice}\n<pre>Gain ${gain}</pre>`, {parse_mode: "HTML"});
         }
     }
 
@@ -180,10 +190,11 @@ module.exports.start = function () {
         bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
     }
 
-    function exa(msg) {
+    async function exa(msg) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, "Restarting Exa");
-        market.getExaAiSignals();
+        await bot.sendMessage(chatId, "Restarting Bot");
+        process.exit(0)
+        // market.getExaAiSignals();
     }
 
     async function track(msg, {status, symbol}) {
@@ -239,7 +250,8 @@ module.exports.start = function () {
             'buy_order_error': buyOrderErrorNotifier,
             'buy_order_ok': buyOrderNotifier,
             'sell_order_error': sellOrderErrorNotifier,
-            'sell_order_ok': sellOrderNotifier
+            'sell_order_ok': sellOrderNotifier,
+            'gain': gainNotifier
         };
         Object.keys(events).forEach(event => {
                 let handler = _.get(chats[chatId][event], symbol);
@@ -289,7 +301,7 @@ module.exports.start = function () {
 //         }
         market.trade({symbol, ratio, activate});
         track(msg, {symbol, status})
-        bot.sendMessage(chatId, `<pre>${symbol||'ALL'}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `<pre>${symbol || 'ALL'}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
     }
 
     async function startTrade() {

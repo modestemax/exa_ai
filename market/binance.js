@@ -59,22 +59,22 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
         let quantity = await balance(base);
         quantity = quantity * ratio / 100;
         const baseQuote = base + quote;
-        let createOrder = 'newOrder';
+        let newOrder = 'newOrder';
         if (process.env.NODE_ENV !== 'production' || true) {
-            createOrder = 'testOrder';
+            newOrder = 'testOrder';
             quantity = 1
         }
-        let order = await binance[createOrder]({symbol: baseQuote, side, type, quantity})
+        let order = await binance[newOrder]({symbol: baseQuote, side, type, quantity})
         setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
     } catch (ex) {
         console.log(ex, retry && 'Retrying');
         if (/LOT_SIZE/.test(ex.msg)) {
-            setImmediate(() => callback(ex));
+            setImmediate(() => callback(ex && ex.message));
         }
         if (retry)
             setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         else
-            setImmediate(() => callback(ex));
+            setImmediate(() => callback(ex && ex.message));
     } finally {
         binanceBusy = false;
     }

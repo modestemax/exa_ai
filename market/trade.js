@@ -82,7 +82,7 @@ module.exports = function (market) {
                 let buySignal = getBuySignal({symbol});
                 let sellSignal = getSellSignal({symbol});
 
-                if (process.env.NODE_ENV !== 'production' && (buySignal || sellSignal)) signal = null;
+                // if (process.env.NODE_ENV !== 'production' && (buySignal || sellSignal)) signal = null;
 
                 if (signal) {
                     market.setExaRateLimit(10e3);//accelerer le check du coté de exa
@@ -92,17 +92,17 @@ module.exports = function (market) {
                     let {done, processing} = processingSignal;
                     if (!(done || processing)) {
                         processingSignal.processing = true;
-                        let balance = await exchange.balance();
-                        let [base, quote] = market.getBaseQuoteFromSymbol(symbol);
+                        // let balance = await exchange.balance();
+                        // let [base, quote] = market.getBaseQuoteFromSymbol(symbol);
 
-                        let quoteBalance = balance[quote];
-                        let baseBalance = balance[base];
+                        // let quoteBalance = balance[quote];
+                        // let baseBalance = balance[base];
 
-                        if (quoteBalance && buySignal) {
+                        if (/*quoteBalance && */buySignal) {
                             market.emit(LAST_BUY_EVENT, buySignal);
                         }
 
-                        if (baseBalance && sellSignal) {
+                        if (/*baseBalance && */sellSignal) {
                             market.emit(LAST_SELL_EVENT, sellSignal);
                         }
                     }
@@ -130,31 +130,30 @@ module.exports = function (market) {
                 symbolsTraded[symbol][signal.action].next = signal;
                 return;
             }
-
+            let ratio = symbolsTraded[symbol].ratio;
             switch (signal.action) {
                 case 'buy':
-                    let ratio = symbolsTraded[symbol].ratio;
                     signal.ratio = ratio;
                     symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio};
                     break;
                 case 'sell':
                     let buySignal = {};
                     let sellSignal = signal;
+                    buySignal = symbolsTraded[symbol] && symbolsTraded[symbol].buy
+                        || symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.buySignal || {};
 
-                    if (symbolsTraded[symbol] && symbolsTraded[symbol].buy) {
-                        buySignal = symbolsTraded[symbol].buy;
-                    } else if (symbolsTraded[symbol] && symbolsTraded[symbol].sell) {
-                        buySignal = symbolsTraded[symbol].sell.buySignal || {};
-                    }
+                    let buyPrice = sellSignal.buyPrice = buySignal.price;
+                    let sellPrice = sellSignal.sellPrice = sellSignal.price;
+                    let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
 
-                    let buy = sellSignal.buyPrice = buySignal.price;
-                    let sell = sellSignal.sellPrice = sellSignal.price;
-                    let gain = ((sell - buy) / buy) * 100;
+                    gain = Math.round(gain * 100) / 100;
 
-                    sellSignal.gain = Math.round(gain * 100) / 100;
+                    sellSignal.gain = gain;
                     sellSignal.buySignal = buySignal;
+                    market.emit('gain', {symbol, buyPrice, sellPrice,gain});
 
                     symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
+                    break;
             }
         } finally {
             saveTradeSignals();

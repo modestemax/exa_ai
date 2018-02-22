@@ -6,9 +6,7 @@
       "cwd": "./",
       "instances": 1,
       "exec_mode": "cluster",
-      "node_args": [
-        //        "--max_old_space_size=500"
-      ],
+      "node_args": "--inspect=0.0.0.0:5858",
       "env": {
         "app_name": "m24",
         "PORT": 3000,
