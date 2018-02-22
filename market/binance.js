@@ -54,18 +54,22 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
     try {
         binanceBusy && setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         binanceBusy = true;
-        const [base, quote] = symbol.split('/');
-        binance = binance || createBinance();
-        let quantity = await balance(base);
-        quantity = quantity * ratio / 100;
-        const baseQuote = base + quote;
-        let newOrder = 'newOrder';
-        if (process.env.NODE_ENV !== 'production' || true) {
-            newOrder = 'testOrder';
-            quantity = 1
+        if (symbol) {
+            const [base, quote] = symbol.split('/');
+            binance = binance || createBinance();
+            let quantity = await balance(base);
+            quantity = quantity * ratio / 100;
+            const baseQuote = base + quote;
+            let newOrder = 'newOrder';
+            if (process.env.NODE_ENV !== 'production' || true) {
+                newOrder = 'testOrder';
+                quantity = 1
+            }
+            let order = await binance[newOrder]({symbol: baseQuote, side, type, quantity})
+            setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
+        } else {
+            callback("Can't " + side + " undefined symbol")
         }
-        let order = await binance[newOrder]({symbol: baseQuote, side, type, quantity})
-        setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
     } catch (ex) {
         console.log(ex, retry && 'Retrying');
         if (/LOT_SIZE/.test(ex.msg)) {
