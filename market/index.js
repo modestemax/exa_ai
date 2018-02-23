@@ -1,6 +1,7 @@
 const debug = require('debug')('market');
 const _ = require('lodash');
 const EventEmitter = require('events');
+const DEBUG = process.env.NODE_ENV !== 'production';
 
 const curl = require('curl');
 
@@ -118,8 +119,9 @@ const curl_get = (url, callback) => {
 
 const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignals() {
     try {
+        let get = DEBUG ? curl_get : curl.get.bind(curl);
         // curl_get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (err) {
                     market.emit(ALL_AI_ERROR_EVENT, err);
