@@ -1,9 +1,8 @@
 const debug = require('debug')('market;exchange');
 const _ = require('lodash');
 const ccxt = require('ccxt');
-const Binance = require('binance');
+const binance = require('binance');
 const exchange = new ccxt.binance();
-
 
 // let APIKEY;
 // let SECRET;
@@ -18,8 +17,12 @@ let SECRET = api.secret;
 exchange.apiKey = APIKEY;
 exchange.secret = SECRET;
 
+const binanceWS = new binance.BinanceWS();
+const streams = binanceWS.streams;
 
-let binance, binanceBusy;
+let binanceRest, binanceBusy;
+let tickers24h;
+
 module.exports.setKey = function ({api_key, secret}) {
     [APIKEY, SECRET] = [api_key, secret];
     exchange.apiKey = APIKEY;
@@ -48,7 +51,23 @@ module.exports.buyMarket = function buyMarket({symbol, ratio, callback = _.noop,
 module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
     createOrder({side: 'SELL', ratio, symbol, callback, retry});
 };
+module.exports.top10 = function top10({top = 10, quote = 'btc', min = 2}) {
+    let tickers = _(tickers24h)
+        .filter(d => d.priceChangePercent > min)
+        .filter(d => d.symbol.match(new RegExp(quote + '$', 'i')))
+        .orderBy(t => +t['priceChangePercent'], 'desc')
+        .value()
+        .slice(0, top || 10);
+    return tickers;
+}
 
+
+module.exports.getPrice = function ({symbol}) {
+    symbol = symbol && symbol.replace('/', '').toUpperCase();
+    let price = _.get(_.find(tickers24h, {symbol}), 'currentClose');
+    console.log('price ' + symbol + ' ' + price)
+    return price;
+}
 
 async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback = _.noop, retry = 5}) {
     try {
@@ -56,7 +75,7 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
         binanceBusy = true;
         if (symbol) {
             const [base, quote] = symbol.split('/');
-            binance = binance || createBinance();
+            binanceRest = createBinanceRest();
             let quantity = await balance(base);
             quantity = quantity * ratio / 100;
             const baseQuote = base + quote;
@@ -65,7 +84,7 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
                 newOrder = 'testOrder';
                 quantity = 1
             }
-            let order = await binance[newOrder]({symbol: baseQuote, side, type, quantity})
+            let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity})
             setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
         } else {
             callback("Can't " + side + " undefined symbol")
@@ -85,9 +104,9 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
 }
 
 
-function createBinance() {
-    const api = require('binance');
-    const binanceRest = new api.BinanceRest({
+function createBinanceRest() {
+
+    binanceRest = binanceRest || new binance.BinanceRest({
         key: APIKEY,// 'api-key', // Get this from your account on binance.com
         secret: SECRET,// 'api-secret', // Same for this
         timeout: 15000, // Optional, defaults to 15000, is the request time out in milliseconds
@@ -106,3 +125,49 @@ function createBinance() {
     });
     return binanceRest;
 }
+
+
+binanceWS.onCombinedStream(
+    [
+        // streams.depth('BNBBTC'),
+        // streams.depthLevel('BNBBTC', 5),
+        // streams.kline('BNBBTC', '5m'),
+        // streams.aggTrade('BNBBTC'),
+        // streams.trade('BNBBTC'),
+        // streams.ticker('BNBBTC'),
+        streams.allTickers()
+    ],
+    (streamEvent) => {
+        switch (streamEvent.stream) {
+            case streams.depth('BNBBTC'):
+                console.log('Depth Event', streamEvent.data);
+                break;
+            case streams.depthLevel('BNBBTC', 5):
+                console.log('Depth Level Event', streamEvent.data);
+                break;
+            case streams.kline('BNBBTC', '5m'):
+                console.log('Kline Event', streamEvent.data);
+                break;
+            case streams.aggTrade('BNBBTC'):
+                console.log('AggTrade Event', streamEvent.data);
+                break;
+            case streams.trade('BNBBTC'):
+                console.log('Trade Event', streamEvent.data);
+                break;
+            case streams.ticker('BNBBTC'):
+                console.log('BNBBTC Ticker Event', streamEvent.data);
+                break;
+            case streams.allTickers():
+                // console.log('Ticker Event', streamEvent.data);
+                changeTickers(streamEvent.data);
+                // getPrice({symbol: 'ethbtc'});
+                break;
+        }
+    }
+);
+
+
+function changeTickers(data) {
+    tickers24h = data;
+}
+

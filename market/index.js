@@ -121,7 +121,8 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
     try {
         let get = DEBUG ? curl_get : curl.get.bind(curl);
         // curl_get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        // get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (err) {
                     market.emit(ALL_AI_ERROR_EVENT, err);
@@ -179,6 +180,12 @@ const trackListSymbol = module.exports.trackListSymbol = function () {
 };
 const tradeListSymbol = module.exports.tradeListSymbol = function () {
     return trade.listSymbol()
+};
+const top10 = module.exports.top10 = function (...args) {
+    return trade.top10.apply(trade, args)
+};
+const getPrice = module.exports.getPrice = function (...args) {
+    return trade.getPrice.apply(trade, args)
 };
 const getTrades = module.exports.getTrades = function () {
     return trade.getTrades()

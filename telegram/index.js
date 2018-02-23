@@ -156,6 +156,8 @@ module.exports.start = async function () {
             '/bal(ance) <i> to list all coins balance.</i>\n',
             '/tradebuypairXX <i> to force buy XX%.</i>\n',
             '/tradesellpairXX <i> to force sell XX%.</i>\n',
+            '/topxx <i> display pumping.</i>\n',
+            '/pricexxxyyy <i> get symbol price.</i>\n',
             {parse_mode: "HTML"});
 
     }
@@ -195,6 +197,19 @@ module.exports.start = async function () {
         const chatId = msg.chat.id;
         await market.tradeCreateOrder({symbol, side, ratio})
         bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
+    }
+
+    async function top10(msg, {top}) {
+        const chatId = msg.chat.id;
+        let tops = market.top10({top})
+        bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
+            return top += '/' + cur.symbol + ' <i>' + cur.priceChangePercent + '%</i>\n'
+        }, '')}`, {parse_mode: "HTML"});
+    }
+
+    async function getPrice(msg, {symbol}) {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, `<b>${symbol}</b> <i>${market.getPrice({symbol})}</i>`, {parse_mode: "HTML"});
     }
 
     async function exa(msg) {
@@ -359,6 +374,16 @@ module.exports.start = async function () {
                     let symbol = match[2];
                     let ratio = +match[3];
                     tradeCreateOrder(msg, {symbol, side, ratio});
+                    break;
+                }
+                case /^top(\d*)$/.test(message) : {
+                    let match = message.match(/^top(\d*)$/);
+                    top10(msg, {top: +match[1]});
+                    break;
+                }
+                case /^price(.+)$/.test(message) : {
+                    let match = message.match(/^price(.+)$/);
+                    getPrice(msg, {symbol: match[1]});
                     break;
                 }
                 case /^exa/.test(message) && isAdmin(msg):

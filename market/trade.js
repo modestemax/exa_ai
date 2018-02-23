@@ -48,6 +48,11 @@ module.exports = function (market) {
     exports.getBalance = async function () {
         return exchange.balance()
     };
+    exports.top10 = function (...args) {
+        return exchange.top10.apply(exchange, args)
+    };  exports.getPrice = function (...args) {
+        return exchange.getPrice.apply(exchange, args)
+    };
     exports.tradeCreateOrder = async function ({symbol, side, ratio}) {
         return placeOrder({
             signal: {
