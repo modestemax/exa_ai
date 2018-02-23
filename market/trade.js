@@ -6,7 +6,7 @@ const exchange = require('./exchange');
 const LAST_BUY_EVENT = 'last_buy_event';
 const LAST_SELL_EVENT = 'last_sell_event';
 const tradejson = process.env.HOME + '/.trade.json';
-
+const gainNotifyManager = {};
 
 module.exports = function (market) {
     const exports = {};
@@ -150,7 +150,22 @@ module.exports = function (market) {
 
                     sellSignal.gain = gain;
                     sellSignal.buySignal = buySignal;
-                    market.emit('gain', {symbol, buyPrice, sellPrice,gain});
+                    market.notify({
+                        symbol,
+                        rateLimitManager: gainNotifyManager,
+                        eventName: 'potential_gain',
+                        delay: 10e3,
+                        signal: {
+                            symbol,
+                            buyPrice,
+                            sellPrice,
+                            gain,
+                            buyTime: buySignal.raw_date,
+                            sellTime: sellSignal.raw_date,
+                            price: sellPrice
+                        }
+                    });
+                    // market.emit('gain', {symbol, buyPrice, sellPrice, gain});
 
                     symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
                     break;

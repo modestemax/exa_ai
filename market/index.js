@@ -204,7 +204,7 @@ function resetSignals() {
 }
 
 
-function notify({symbol, rateLimitManager, eventName, signal}) {
+const notify = module.exports.notify = function ({symbol, rateLimitManager, eventName, signal, delay = trackNotifyRateLimit}) {
     signal = signal || getSignal(symbol);
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
     if (signal && (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price)) {
@@ -216,7 +216,7 @@ function notify({symbol, rateLimitManager, eventName, signal}) {
         rateLimitManager[symbol].wait = true;
         rateLimitManager[symbol].signal = signal;
 
-        rateLimitManager[symbol].timeout = setTimeout(() => (rateLimitManager[symbol].wait = false), trackNotifyRateLimit);
+        rateLimitManager[symbol].timeout = setTimeout(() => (rateLimitManager[symbol].wait = false), delay);
     }
 }
 

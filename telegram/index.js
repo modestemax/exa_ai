@@ -8,9 +8,8 @@ const MAX_CHAT_ID_BITCOIN_INVEST = '-1001169214481';
 // replace the value below with the Telegram token you receive from @BotFather
 // const token = '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
 
-const token = !DEBUG ?
-    '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU' :
-    '496655496:AAFmg9mheE9urDt2oCQDIRL5fXjCpGYiAug';
+const token = DEBUG ? '496655496:AAFmg9mheE9urDt2oCQDIRL5fXjCpGYiAug' : '545101798:AAGM1TodXYaS0MreKKimt23KZlXTmmEH_pU';
+const channel = DEBUG ? '@m24_channel_test' : '@M24_Bot_Notifier';
 
 // const Tgfancy = require("tgfancy");
 // const bot = new Tgfancy(token);
@@ -19,7 +18,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(token, {polling: true});
 // const bot = new TelegramBot(token, {webHook: true});
 
-module.exports.start = function () {
+module.exports.start = async function () {
     // const chats = {[MAX_CHAT_ID]: MAX_CHAT_ID, [MAX_CHAT_ID_BITCOIN_INVEST]: MAX_CHAT_ID_BITCOIN_INVEST};
     const chats = {};
     chats[MAX_CHAT_ID] = MAX_CHAT_ID;
@@ -36,6 +35,13 @@ module.exports.start = function () {
         debug('ALL_AI_ERROR_EVENT');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]\n" + data.toString()).catch(_.noop));
     });
+
+
+    (function ChannelNotifier() {
+        market.on('new_order', function (order) {
+            // !;
+        });
+    })();
 
     function buySellSignalNotifier(chatId, symbol) {
         let _symbol = symbol;
@@ -96,13 +102,14 @@ module.exports.start = function () {
         }
     }
 
-    function gainNotifier(chatId, symbol) {
+    function potentialGainNotifier(chatId, symbol) {
         let _symbol = symbol;
-        return function ({symbol, buyPrice, sellPrice, gain}) {
+        return function ({symbol, buyPrice, sellPrice, gain, buyTime, sellTime}) {
             // debug('action ' + action);
             //let symbol = order.symbol;
             //_symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() &&
-            bot.sendMessage(chatId, `<b>Trade Result</b>  /${symbol}\nBuy ${buyPrice}\nSell ${sellPrice}\n<pre>Gain ${gain}</pre>`, {parse_mode: "HTML"});
+            bot.sendMessage(chatId, `<b>Trade Result</b>  /${symbol}\nBuy ${buyPrice} at ${buyTime}\nSell ${sellPrice} at ${sellTime}\n
+<pre>Gain ${gain}</pre>`, {parse_mode: "HTML"});
         }
     }
 
@@ -251,7 +258,7 @@ module.exports.start = function () {
             'buy_order_ok': buyOrderNotifier,
             'sell_order_error': sellOrderErrorNotifier,
             'sell_order_ok': sellOrderNotifier,
-            'gain': gainNotifier
+            'potential_gain': potentialGainNotifier
         };
         Object.keys(events).forEach(event => {
                 let handler = _.get(chats[chatId][event], symbol);
