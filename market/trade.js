@@ -45,6 +45,14 @@ module.exports = function (market) {
     exports.getTrades = function () {
         return symbolsTraded
     };
+    exports.getRunningTrades = function () {
+        return _.keys(symbolsTraded)
+            .filter(symbol => symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.done)
+            .reduce((running, symbol) => {
+                running[symbol] = exchange.addHelperInOrder({symbol, order: symbolsTraded[symbol].buy})
+                return running;
+            }, {});
+    };
     exports.getBalance = async function () {
         return exchange.balance()
     };
@@ -128,6 +136,7 @@ module.exports = function (market) {
             let symbol = signal.pair;
             if (done) {
                 signal.done = true;
+                symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
                 return;
             }
             //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
@@ -210,7 +219,18 @@ module.exports = function (market) {
                         data: `Error when placing order : ${doAction} ${signal.symbol}\n ${err.toString()}`
                     });
                 } else {
-                    isManual || updateTradeSignal({signal, done: true});
+                    if (isManual) {
+                        let date = new Date();
+                        let time = date.getTime();
+                        let raw_date = [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' ');
+
+                        signal = _.extend({
+                            time, date, raw_date, pair: order.symbol,
+                            "processing": false,
+                            "done": true
+                        }, signal, order);
+                    }
+                    updateTradeSignal({signal, done: true});
                     emit100({event: ok_event, data: order, emit: 1});
                 }
             }

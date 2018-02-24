@@ -38,7 +38,7 @@ module.exports.start = async function () {
 
 
     (function ChannelNotifier() {
-        let evolution = {};
+        let evolution = market.getRunningTrades();
         market.on('buy_order_ok', function (order) {
             evolution[order.symbol] = order;
         });
@@ -55,7 +55,6 @@ module.exports.start = async function () {
                 } else if (order.gainChanded()) {
                     await   bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
                 }
-
             })
             // }, 10e3)
         }, 1e3)
@@ -213,8 +212,9 @@ module.exports.start = async function () {
 
     async function tradeCreateOrder(msg, {symbol, side, ratio}) {
         const chatId = msg.chat.id;
-        await market.tradeCreateOrder({symbol, side, ratio})
-        bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
+        await market.tradeCreateOrder({symbol, side, ratio});
+        await bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
+        await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
     }
 
     async function top10(msg, {top}) {
@@ -339,8 +339,8 @@ module.exports.start = async function () {
 //             _.set(chats[chatId].sell_handler, symbol, null)
 //         }
         market.trade({symbol, ratio, activate});
-        track(msg, {symbol, status})
-        bot.sendMessage(chatId, `/${symbol || 'ALL'} Auto Trade ${status}`, {parse_mode: "HTML"});
+        await  track(msg, {symbol, status})
+        await bot.sendMessage(chatId, `/${symbol || 'ALL'} Auto Trade ${status}`, {parse_mode: "HTML"});
     }
 
     async function startTrade() {

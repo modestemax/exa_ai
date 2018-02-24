@@ -67,9 +67,36 @@ const getPrice = module.exports.getPrice = function ({symbol, html}) {
     let ticker = _.find(tickers24h, {symbol});
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
-        return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : price;
-    } else return 'N/A';
+        return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
+    } else return NaN;
 };
+
+
+const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, order}) {
+    return order = _.extend({symbol, gain: 0, price: getPrice({symbol})}, order, {
+        gainChanded() {
+            order.sellPrice = getPrice({symbol});
+            order.gain = getGain(order.price, order.sellPrice);
+            if (order.oldGain === order.gain) {
+                return false;
+            } else {
+                let oldGain = order.oldGain;
+                order.oldGain = order.gain;
+                return (Math.abs(oldGain - order.gain) > .15)
+            }
+        },
+        status() {
+            let {symbol, price, gain, sellPrice} = order;
+            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> `
+        },
+        resume({sellPrice}) {
+            let {symbol, price} = order;
+            let gain = getGain(price, sellPrice);
+            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+        }
+    })
+}
+
 
 async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback = _.noop, retry = 5}) {
     try {
@@ -93,14 +120,15 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
             callback("Can't " + side + " undefined symbol")
         }
     } catch (ex) {
-        console.log(ex, retry && 'Retrying');
+        let err = ex && JSON.stringify(ex.msg)
+        console.log(ex, retry && 'Retrying ' + (1 - retry));
         if (/LOT_SIZE/.test(ex.msg)) {
-            setImmediate(() => callback(ex && ex.message));
+            setImmediate(() => callback(err));
         }
         if (retry)
             setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         else
-            setImmediate(() => callback(ex && ex.message));
+            setImmediate(() => callback(err));
     } finally {
         binanceBusy = false;
     }
@@ -161,7 +189,7 @@ binanceWS.onCombinedStream(
                 console.log('BNBBTC Ticker Event', streamEvent.data);
                 break;
             case streams.allTickers():
-                // console.log('Ticker Event', streamEvent.data);
+                console.log('allTickers OK ', streamEvent.data.length);
                 changeTickers(streamEvent.data);
                 // getPrice({symbol: 'ethbtc'});
                 break;
@@ -177,29 +205,4 @@ function changeTickers(data) {
 function getGain(buyPrice, sellPrice) {
     let gain = (sellPrice - buyPrice) / buyPrice * 100;
     return Math.trunc(gain * 100) / 100;
-}
-
-function addHelperInOrder({symbol, order}) {
-    return order = _.extend({symbol, gain: 0, price: +getPrice({symbol})}, order, {
-        gainChanded() {
-            order.sellPrice = +getPrice({symbol});
-            order.gain = getGain(order.price, order.sellPrice);
-            if (order.oldGain === order.gain) {
-                return false;
-            } else {
-                let oldGain = order.oldGain;
-                order.oldGain = order.gain;
-                return (Math.abs(oldGain - order.gain) > .15)
-            }
-        },
-        status() {
-            let {symbol, price, gain, sellPrice} = order;
-            return `<<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> `
-        },
-        resume({sellPrice}) {
-            let {symbol, price} = order;
-            let gain = getGain(price, sellPrice);
-            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
-        }
-    })
 }

@@ -156,6 +156,7 @@ const getSignals = module.exports.getSignals = function (symbol) {
         .filter(i => new RegExp(symbol).test(i && i.currency))
         .map(signal => {
             let date = new Date(signal.time);
+            let raw_date = [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' ');
             return {
                 price: signal.price,
                 signal: signal.signal,
@@ -163,7 +164,7 @@ const getSignals = module.exports.getSignals = function (symbol) {
                 action: signal.signal,
                 symbol: getSymbolFromCurrencyPair(signal.currency),
                 time: signal.time,
-                raw_date: [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' '),
+                raw_date
             }
         });
 
@@ -189,6 +190,9 @@ const getPrice = module.exports.getPrice = function (...args) {
 };
 const getTrades = module.exports.getTrades = function () {
     return trade.getTrades()
+};
+const getRunningTrades = module.exports.getRunningTrades = function () {
+    return trade.getRunningTrades()
 };
 const getBalance = module.exports.getBalance = async function () {
     return trade.getBalance()
