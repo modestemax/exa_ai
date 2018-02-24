@@ -199,7 +199,7 @@ function addHelperInOrder({symbol, order}) {
         resume({sellPrice}) {
             let {symbol, price} = order;
             let gain = getGain(price, sellPrice);
-            return `<b>${symbol}</b> <i>End of Trade</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
         }
     })
 }
