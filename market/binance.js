@@ -44,8 +44,8 @@ const balance = module.exports.balance = async function (coin) {
     }
 };
 
-module.exports.buyMarket = function buyMarket({symbol, ratio, callback = _.noop, retry = 5}) {
-    createOrder({side: 'BUY', ratio, symbol, callback, retry});
+module.exports.buyMarket = function buyMarket({symbol, ratio, quantity, callback = _.noop, retry = 5}) {
+    createOrder({side: 'BUY', ratio, quantity, symbol, callback, retry});
 };
 
 module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
@@ -72,8 +72,8 @@ const getPrice = module.exports.getPrice = function ({symbol, html}) {
 };
 
 
-const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, order}) {
-    return order = _.extend({symbol, gain: 0, price: getPrice({symbol})}, order, {
+const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, quantity, order}) {
+    return order = _.extend({symbol, gain: 0, executedQty: quantity, price: getPrice({symbol})}, order, {
         gainChanded() {
             order.sellPrice = getPrice({symbol});
             order.gain = getGain(order.price, order.sellPrice);
@@ -87,34 +87,38 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
         },
         status() {
             let {symbol, price, gain, sellPrice} = order;
-            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain<0?'Lost':'Gain'} ${gain}%</pre> `
+            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> `
         },
         resume({sellPrice}) {
             let {symbol, price} = order;
             let gain = getGain(price, sellPrice);
-            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain<0?'Lost':'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
         }
     })
 }
 
 
-async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback = _.noop, retry = 5}) {
+async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100, callback = _.noop, retry = 5}) {
     try {
         binanceBusy && setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
         binanceBusy = true;
         if (symbol) {
             const [base, quote] = symbol.split('/');
             binanceRest = createBinanceRest();
-            let quantity = await balance(base);
-            quantity = quantity * ratio / 100;
+            if (side === 'BUY') {
+                quantity = quantity * ratio / 100;
+            } else {
+                quantity = await balance(base);
+            }
+
+
             const baseQuote = base + quote;
             let newOrder = 'newOrder';
             if (process.env.NODE_ENV !== 'production' || true) {
                 newOrder = 'testOrder';
-                quantity = 1
             }
             let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
-            order = addHelperInOrder({order, symbol: baseQuote});
+            order = addHelperInOrder({order, symbol: baseQuote, quantity});
             setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
         } else {
             callback("Can't " + side + " undefined symbol")

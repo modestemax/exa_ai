@@ -209,6 +209,10 @@ module.exports.start = async function () {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, _.map(await market.getBalance(), (balance, coin) => `<pre>${coin}: ${balance}</pre>`).join(''), {parse_mode: "HTML"});
     }
+  async function amountList(msg) {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, _.map(await market.amountList(), (quantity, coin) => `<pre>${coin}: ${quantity}</pre>`).join(''), {parse_mode: "HTML"});
+    }
 
     async function tradeCreateOrder(msg, {symbol, side, ratio}) {
         const chatId = msg.chat.id;
@@ -274,6 +278,12 @@ module.exports.start = async function () {
         let signals = market.getSignals(symbol);
         signals && signals.length ? signals.forEach(signal => bot.sendMessage(chatId, signalToText(signal), {parse_mode: "HTML"}))
             : bot.sendMessage(chatId, signalToText(market.getSignal(symbol)), {parse_mode: "HTML"});
+    }
+
+    function setAmount(msg, {currency, amount}) {
+        const chatId = msg.chat.id;
+        market.setAmount({currency, amount});
+        bot.sendMessage(chatId, 'New amount for ' + currency + ' is ' + amount);
     }
 
     async function trade(msg, {status, ratio, symbol}) {
@@ -376,6 +386,9 @@ module.exports.start = async function () {
                 case /^tradelist/.test(message) && isAdmin(msg):
                     tradeList(msg)
                     break;
+                    case /^amount$/.test(message) && isAdmin(msg):
+                    amountList(msg)
+                    break;
                 case /^tracklist/.test(message):
                     trackList(msg)
                     break;
@@ -405,6 +418,16 @@ module.exports.start = async function () {
                 }
                 case /^exa/.test(message) && isAdmin(msg):
                     exa(msg)
+                    break;
+                case /^amount([^\s]+)\s+(.*)/.test(message) && isAdmin(msg):
+                    let match = message.match(/^amount([^\s]+)\s+(.*)/);
+                    let [, currency, amount] = match;
+                    if (+amount && amount > 0) {
+                        setAmount(msg, {currency, amount:+amount})
+                    } else {
+                        bot.sendMessage(chatId, 'Invalid amount')
+                    }
+
                     break;
                 case /^(?:no)?trade\s*([\d\w]+[^\d]+)?\s*(\d*)$/.test(message) && isAdmin(msg): {
                     let match = message.match(/^(?:no)?trade\s*([\d\w]+[^\d]+)?\s*(\d*)$/);

@@ -6,6 +6,7 @@ const exchange = require('./exchange');
 const LAST_BUY_EVENT = 'last_buy_event';
 const LAST_SELL_EVENT = 'last_sell_event';
 const tradejson = process.env.HOME + '/.trade.json';
+const amountjson = process.env.HOME + '/.amount.json';
 const gainNotifyManager = {};
 
 module.exports = function (market) {
@@ -39,6 +40,24 @@ module.exports = function (market) {
         activate ? startTrade.apply(null, args) : stopTrade.apply(null, args);
         saveTradeSignals();
     };
+
+    exports.setAmount = function ({currency, amount}) {
+        let amounts = loadAmount();
+        amounts = _.extend({}, amounts, {[currency.toLowerCase()]: amount});
+        fs.writeFileSync(amountjson, JSON.stringify(amounts))
+    };
+
+    function loadAmount({symbol} = {}) {
+        symbol = symbol && symbol.toLowerCase();
+        let amounts = fs.readFileSync(amountjson, 'utf8');
+        amounts = JSON.parse(amounts)
+        if (symbol) {
+            const [, quote] = symbol.split('/');
+            return amounts[quote]
+        }
+        return amounts;
+    }
+
     exports.listSymbol = function () {
         return _.keys(symbolsTraded)
     };
@@ -55,6 +74,9 @@ module.exports = function (market) {
     };
     exports.getBalance = async function () {
         return exchange.balance()
+    };
+    exports.amountList = async function () {
+        return loadAmount();
     };
     exports.top10 = function (...args) {
         return exchange.top10.apply(exchange, args)
@@ -206,10 +228,17 @@ module.exports = function (market) {
     function placeOrder({signal, ok_event, nok_event}) {
         let doAction = signal.action === 'buy' ? 'buyMarket' : 'sellMarket';
         let {isManual, ratio} = signal;
-
+        let quantity = loadAmount({symbol: signal.symbol});
+        if (quantity < 0) {
+            return emit100({
+                event: nok_event,
+                data: `Error when placing order : ${doAction} ${signal.symbol}\n Insufficient amount`
+            });
+        }
         signal.processing = true;
         exchange[doAction] && exchange[doAction]({
             symbol: signal.symbol,
+            quantity,
             ratio,
             callback: (err, order) => {
                 signal.processing = false;

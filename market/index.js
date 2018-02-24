@@ -82,6 +82,9 @@ module.exports.track = function ({symbol, activate}) {
 module.exports.trade = function (...args) {
     trade.trade.apply(trade, args);
 };
+module.exports.setAmount = function (...args) {
+    trade.setAmount.apply(trade, args);
+};
 
 let temps = 0, price = 0.028883;
 const curl_get = (url, callback) => {
@@ -196,6 +199,9 @@ const getRunningTrades = module.exports.getRunningTrades = function () {
 };
 const getBalance = module.exports.getBalance = async function () {
     return trade.getBalance()
+};
+const amountList = module.exports.amountList = async function () {
+    return trade.amountList()
 };
 const tradeCreateOrder = module.exports.tradeCreateOrder = async function (...args) {
     return trade.tradeCreateOrder.apply(trade, args)
