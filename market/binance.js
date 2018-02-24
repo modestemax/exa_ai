@@ -77,17 +77,28 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
         gainChanded() {
             order.sellPrice = getPrice({symbol});
             order.gain = getGain(order.price, order.sellPrice);
+            let stopLoss = order.stopLoss || order.price + order.price * (-5 / 100);
+
             if (order.oldGain === order.gain) {
                 return false;
             } else {
+                let highPrice = Math.max(order.highPrice || 0, order.sellPrice);
+                stopLoss = highPrice + highPrice * (-3 / 100);
+
                 let oldGain = order.oldGain;
                 order.oldGain = order.gain;
-                return (Math.abs(oldGain - order.gain) > .15)
+                order.stopLoss = stopLoss && (+stopLoss).toFixed(8);
+                order.info = order.sellPrice <= stopLoss ? 'Stop Loss Reached [SELL]' : 'Going Smoothly [HOLD]';
+                return (Math.abs(oldGain - order.gain) > .25)
             }
         },
         status() {
             let {symbol, price, gain, sellPrice} = order;
-            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> `
+            return `<b>${symbol}</b>\nBuy: ${price}\nLast Price: ${sellPrice}
+<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> 
+<pre>StopLoss ${order.stopLoss}</pre>
+<pre>${order.info}</pre>
+`
         },
         resume({sellPrice}) {
             let {symbol, price} = order;
@@ -130,7 +141,7 @@ async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100
             setImmediate(() => callback(err));
         }
         if (retry)
-            setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
+            setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 1e3);
         else
             setImmediate(() => callback(err));
     } finally {
@@ -208,5 +219,5 @@ function changeTickers(data) {
 
 function getGain(buyPrice, sellPrice) {
     let gain = (sellPrice - buyPrice) / buyPrice * 100;
-    return Math.trunc(gain * 100) / 100;
+    return gain.toFixed(2);
 }

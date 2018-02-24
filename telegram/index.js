@@ -209,7 +209,8 @@ module.exports.start = async function () {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, _.map(await market.getBalance(), (balance, coin) => `<pre>${coin}: ${balance}</pre>`).join(''), {parse_mode: "HTML"});
     }
-  async function amountList(msg) {
+
+    async function amountList(msg) {
         const chatId = msg.chat.id;
         bot.sendMessage(chatId, _.map(await market.amountList(), (quantity, coin) => `<pre>${coin}: ${quantity}</pre>`).join(''), {parse_mode: "HTML"});
     }
@@ -237,7 +238,7 @@ module.exports.start = async function () {
     async function exa(msg) {
         const chatId = msg.chat.id;
         await bot.sendMessage(chatId, "Restarting Bot");
-        process.exit(0)
+        setTimeout(() => process.exit(0), 2e3);
         // market.getExaAiSignals();
     }
 
@@ -386,7 +387,7 @@ module.exports.start = async function () {
                 case /^tradelist/.test(message) && isAdmin(msg):
                     tradeList(msg)
                     break;
-                    case /^amount$/.test(message) && isAdmin(msg):
+                case /^amount$/.test(message) && isAdmin(msg):
                     amountList(msg)
                     break;
                 case /^tracklist/.test(message):
@@ -423,7 +424,7 @@ module.exports.start = async function () {
                     let match = message.match(/^amount([^\s]+)\s+(.*)/);
                     let [, currency, amount] = match;
                     if (+amount && amount > 0) {
-                        setAmount(msg, {currency, amount:+amount})
+                        setAmount(msg, {currency, amount: +amount})
                     } else {
                         bot.sendMessage(chatId, 'Invalid amount')
                     }
