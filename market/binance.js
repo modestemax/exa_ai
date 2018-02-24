@@ -62,12 +62,14 @@ module.exports.top10 = function top10({top = 10, quote = 'btc', min = 2}) {
 }
 
 
-module.exports.getPrice = function ({symbol}) {
+module.exports.getPrice = function ({symbol, html}) {
     symbol = symbol && symbol.replace('/', '').toUpperCase();
-    let price = _.get(_.find(tickers24h, {symbol}), 'currentClose');
-    console.log('price ' + symbol + ' ' + price)
-    return price;
-}
+    let ticker = _.find(tickers24h, {symbol});
+    if (ticker) {
+        let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
+        return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : price;
+    } else return 'N/A';
+};
 
 async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback = _.noop, retry = 5}) {
     try {

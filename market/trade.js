@@ -50,7 +50,8 @@ module.exports = function (market) {
     };
     exports.top10 = function (...args) {
         return exchange.top10.apply(exchange, args)
-    };  exports.getPrice = function (...args) {
+    };
+    exports.getPrice = function (...args) {
         return exchange.getPrice.apply(exchange, args)
     };
     exports.tradeCreateOrder = async function ({symbol, side, ratio}) {
@@ -142,37 +143,37 @@ module.exports = function (market) {
                     symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio};
                     break;
                 case 'sell':
-                    let buySignal = {};
                     let sellSignal = signal;
-                    buySignal = symbolsTraded[symbol] && symbolsTraded[symbol].buy
-                        || symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.buySignal || {};
+                    let buySignal = symbolsTraded[symbol] && symbolsTraded[symbol].buy
+                        || symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.buySignal;
+                    if (buySignal) {
+                        let buyPrice = sellSignal.buyPrice = buySignal.price;
+                        let sellPrice = sellSignal.sellPrice = sellSignal.price;
+                        let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
 
-                    let buyPrice = sellSignal.buyPrice = buySignal.price;
-                    let sellPrice = sellSignal.sellPrice = sellSignal.price;
-                    let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
+                        gain = Math.round(gain * 100) / 100;
 
-                    gain = Math.round(gain * 100) / 100;
-
-                    sellSignal.gain = gain;
-                    sellSignal.buySignal = buySignal;
-                    market.notify({
-                        symbol,
-                        rateLimitManager: gainNotifyManager,
-                        eventName: 'potential_gain',
-                        delay: 10e3,
-                        signal: {
+                        sellSignal.gain = gain;
+                        sellSignal.buySignal = buySignal;
+                        market.notify({
                             symbol,
-                            buyPrice,
-                            sellPrice,
-                            gain,
-                            buyTime: buySignal.raw_date,
-                            sellTime: sellSignal.raw_date,
-                            price: sellPrice
-                        }
-                    });
-                    // market.emit('gain', {symbol, buyPrice, sellPrice, gain});
+                            rateLimitManager: gainNotifyManager,
+                            eventName: 'potential_gain',
+                            delay: 10e3,
+                            signal: {
+                                symbol,
+                                buyPrice,
+                                sellPrice,
+                                gain,
+                                buyTime: buySignal.raw_date,
+                                sellTime: sellSignal.raw_date,
+                                price: sellPrice
+                            }
+                        });
+                        // market.emit('gain', {symbol, buyPrice, sellPrice, gain});
 
-                    symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
+                        symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
+                    }
                     break;
             }
         } finally {

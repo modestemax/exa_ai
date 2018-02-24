@@ -209,7 +209,7 @@ module.exports.start = async function () {
 
     async function getPrice(msg, {symbol}) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, `<b>${symbol}</b> <i>${market.getPrice({symbol})}</i>`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `<b>${symbol}</b> ${market.getPrice({symbol,html:true})}`, {parse_mode: "HTML"});
     }
 
     async function exa(msg) {
@@ -237,7 +237,6 @@ module.exports.start = async function () {
 
                 chats[chatId].buy_sell_signal_handler = _.extend({}, chats[chatId].buy_sell_signal_handler, {[symbol]: buy_sell_signal_handler});
             }
-            market.track({symbol, activate});
         } else {
             _.forEach(symbol ? [symbol] : _.keys(chats[chatId].buy_sell_signal_handler), symbol => {
                 buy_sell_signal_handler = _.get(chats[chatId].buy_sell_signal_handler, symbol);
@@ -245,7 +244,7 @@ module.exports.start = async function () {
                 _.set(chats[chatId].buy_sell_signal_handler, symbol, null)
             });
         }
-
+        market.track({symbol, activate});
 
         bot.sendMessage(chatId, `<pre>${symbol || 'All'}</pre> tracking ${status}`, {parse_mode: "HTML"});
 
