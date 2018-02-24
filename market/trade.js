@@ -243,11 +243,13 @@ module.exports = function (market) {
             quantity,
             ratio,
             callback: (err, order) => {
+                let {symbol} = order;
+                symbol = symbol && symbol.toLowerCase();
                 signal.processing = false;
                 if (err) {
                     emit100({
                         event: nok_event,
-                        data: `Error when placing order : ${doAction} ${signal.symbol}\n ${err.toString()}`
+                        data: `Error when placing order : ${doAction} ${symbol}\n ${err.toString()}`
                     });
                 } else {
                     if (isManual) {
@@ -256,10 +258,10 @@ module.exports = function (market) {
                         let raw_date = [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' ');
 
                         signal = _.extend({
-                            time, date, raw_date, pair: order.symbol,
+                            time, date, raw_date,
                             "processing": false,
                             "done": true
-                        }, signal, order);
+                        }, signal, order, {symbol, pair: symbol});
                     }
                     updateTradeSignal({signal, done: true});
                     emit100({event: ok_event, data: order, emit: 1});
