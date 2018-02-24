@@ -92,7 +92,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                 order.oldGain = order.gain;
                 order.stopLoss = stopLoss && (+stopLoss).toFixed(8);
                 order.info = order.sellPrice <= stopLoss ? 'Stop Loss Reached [SELL]' : 'Going Smoothly [HOLD]';
-                return (Math.abs(oldGain - order.gain) > .25)
+                return (Math.abs(oldGain - order.gain) > .5)
             }
         },
         status() {
