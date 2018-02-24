@@ -191,7 +191,8 @@ module.exports = function (market) {
                             symbol,
                             rateLimitManager: gainNotifyManager,
                             eventName: 'potential_gain',
-                            delay: 10e3,
+                            key: 'gain',
+                            delay: 30e3,
                             signal: {
                                 symbol,
                                 buyPrice,

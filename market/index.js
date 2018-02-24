@@ -223,15 +223,15 @@ function resetSignals() {
 }
 
 
-const notify = module.exports.notify = function ({symbol, rateLimitManager, eventName, signal, delay = trackNotifyRateLimit}) {
+const notify = module.exports.notify = function ({symbol, rateLimitManager, eventName, key = 'price', signal, delay = trackNotifyRateLimit}) {
     signal = signal || getSignal(symbol);
     rateLimitManager[symbol] = rateLimitManager[symbol] || {};
-    if (signal && (!rateLimitManager[symbol].wait || rateLimitManager[symbol].lastPrice !== signal.price)) {
+    if (signal && (!rateLimitManager[symbol].wait || rateLimitManager[symbol][key] !== signal[key])) {
         market.emit(eventName, signal);
         clearTimeout(rateLimitManager[symbol].timeout);
 
         rateLimitManager[symbol] = {};
-        rateLimitManager[symbol].lastPrice = signal.price;
+        rateLimitManager[symbol][key] = signal[key];
         rateLimitManager[symbol].wait = true;
         rateLimitManager[symbol].signal = signal;
 
