@@ -85,11 +85,11 @@ module.exports.trade = function (...args) {
 
 let temps = 0, price = 0.028883;
 const curl_get = (url, callback) => {
-    let currency = 'testbtc';
+    let currency = 'ethbtc';
     price += .00001;
     temps++;
     switch (true) {
-        case temps < 3:
+        case temps < 2:
             return callback(null, null, JSON.stringify({
                 buy: [{
                     "time": new Date().getTime(),
@@ -98,9 +98,9 @@ const curl_get = (url, callback) => {
                     currency
                 }]
             }))
-        case temps < 5:
+        case temps < 3:
             return callback(null, null, "");
-        case temps < 8:
+        case temps < 5:
             return callback(null, null, JSON.stringify({
                 sell: [{
                     "time": new Date().getTime(),
@@ -109,7 +109,7 @@ const curl_get = (url, callback) => {
                     currency
                 }]
             }))
-        case temps < 10:
+        case temps < 6:
             return callback(null, null, "");
 
         default:
@@ -121,8 +121,8 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
     try {
         let get = DEBUG ? curl_get : curl.get.bind(curl);
         // curl_get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        // get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+            // curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (err) {
                     market.emit(ALL_AI_ERROR_EVENT, err);

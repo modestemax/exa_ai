@@ -38,9 +38,27 @@ module.exports.start = async function () {
 
 
     (function ChannelNotifier() {
-        market.on('new_order', function (order) {
-            // !;
+        let evolution = {};
+        market.on('buy_order_ok', function (order) {
+            evolution[order.symbol] = order;
         });
+        market.on('sell_order_ok', function (order) {
+            evolution[order.symbol].sold = order.price;
+        });
+        setInterval(() => {
+            _.keys(evolution).forEach(async symbol => {
+                let order = evolution[symbol];
+                let sold = order.sold;
+                if (sold) {
+                    delete evolution[symbol];
+                    await bot.sendMessage(channel, order.resume({sellPrice: sold}), {parse_mode: "HTML"})
+                } else if (order.gainChanded()) {
+                    await   bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
+                }
+
+            })
+            // }, 10e3)
+        }, 1e3)
     })();
 
     function buySellSignalNotifier(chatId, symbol) {
@@ -209,7 +227,7 @@ module.exports.start = async function () {
 
     async function getPrice(msg, {symbol}) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, `/${symbol} ${market.getPrice({symbol,html:true})}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `/${symbol} ${market.getPrice({symbol, html: true})}`, {parse_mode: "HTML"});
     }
 
     async function exa(msg) {

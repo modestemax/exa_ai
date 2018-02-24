@@ -62,7 +62,7 @@ module.exports.top10 = function top10({top = 10, quote = 'btc', min = 2}) {
 }
 
 
-module.exports.getPrice = function ({symbol, html}) {
+const getPrice = module.exports.getPrice = function ({symbol, html}) {
     symbol = symbol && symbol.replace('/', '').toUpperCase();
     let ticker = _.find(tickers24h, {symbol});
     if (ticker) {
@@ -86,7 +86,8 @@ async function createOrder({side, type = 'MARKET', symbol, ratio = 100, callback
                 newOrder = 'testOrder';
                 quantity = 1
             }
-            let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity})
+            let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
+            order = addHelperInOrder({order, symbol: baseQuote});
             setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
         } else {
             callback("Can't " + side + " undefined symbol")
@@ -173,3 +174,32 @@ function changeTickers(data) {
     tickers24h = data;
 }
 
+function getGain(buyPrice, sellPrice) {
+    let gain = (sellPrice - buyPrice) / buyPrice * 100;
+    return Math.trunc(gain * 100) / 100;
+}
+
+function addHelperInOrder({symbol, order}) {
+    return order = _.extend({symbol, gain: 0, price: +getPrice({symbol})}, order, {
+        gainChanded() {
+            order.sellPrice = +getPrice({symbol});
+            order.gain = getGain(order.price, order.sellPrice);
+            if (order.oldGain === order.gain) {
+                return false;
+            } else {
+                let oldGain = order.oldGain;
+                order.oldGain = order.gain;
+                return (Math.abs(oldGain - order.gain) > .15)
+            }
+        },
+        status() {
+            let {symbol, price, gain, sellPrice} = order;
+            return `<<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> `
+        },
+        resume({sellPrice}) {
+            let {symbol, price} = order;
+            let gain = getGain(price, sellPrice);
+            return `<b>${symbol}</b> <i>End of Trade</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+        }
+    })
+}
