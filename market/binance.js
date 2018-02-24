@@ -87,12 +87,12 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
         },
         status() {
             let {symbol, price, gain, sellPrice} = order;
-            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> `
+            return `<b>${symbol}</b>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain<0?'Lost':'Gain'} ${gain}%</pre> `
         },
         resume({sellPrice}) {
             let {symbol, price} = order;
             let gain = getGain(price, sellPrice);
-            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>gain ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sellPrice}<pre>${gain<0?'Lost':'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
         }
     })
 }
