@@ -419,7 +419,8 @@ module.exports.start = async function () {
                     break;
                 }
                 default:
-                    showSignal(msg, message)
+                    showSignal(msg, message);
+                    getPrice(msg, {symbol: message});
                     break;
             }
         } catch (ex) {
