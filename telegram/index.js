@@ -209,7 +209,7 @@ module.exports.start = async function () {
 
     async function getPrice(msg, {symbol}) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, `<b>${symbol}</b> ${market.getPrice({symbol,html:true})}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `/${symbol} ${market.getPrice({symbol,html:true})}`, {parse_mode: "HTML"});
     }
 
     async function exa(msg) {
@@ -246,7 +246,7 @@ module.exports.start = async function () {
         }
         market.track({symbol, activate});
 
-        bot.sendMessage(chatId, `<pre>${symbol || 'All'}</pre> tracking ${status}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `/${symbol || 'All'} tracking ${status}`, {parse_mode: "HTML"});
 
     }
 
@@ -322,7 +322,7 @@ module.exports.start = async function () {
 //         }
         market.trade({symbol, ratio, activate});
         track(msg, {symbol, status})
-        bot.sendMessage(chatId, `<pre>${symbol || 'ALL'}</pre> Auto Trade ${status}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `/${symbol || 'ALL'} Auto Trade ${status}`, {parse_mode: "HTML"});
     }
 
     async function startTrade() {
