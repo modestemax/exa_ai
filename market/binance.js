@@ -130,6 +130,7 @@ async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100
             let newOrder = 'newOrder';
             if (process.env.NODE_ENV !== 'production' || true) {
                 newOrder = 'testOrder';
+                quantity=10;
             }
             let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
             order = addHelperInOrder({order, symbol: baseQuote, quantity});
