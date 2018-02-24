@@ -54,7 +54,7 @@ module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noo
 module.exports.top10 = function top10({top = 10, quote = 'btc', min = 2}) {
     let tickers = _(tickers24h)
         .filter(d => d.priceChangePercent > min)
-        .filter(d => d.symbol.match(new RegExp(quote + '$', 'i')))
+        // .filter(d => d.symbol.match(new RegExp(quote + '$', 'i')))
         .orderBy(t => +t['priceChangePercent'], 'desc')
         .value()
         .slice(0, top || 10);
