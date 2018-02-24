@@ -10,6 +10,7 @@ const amountjson = process.env.HOME + '/.amount.json';
 const gainNotifyManager = {};
 
 module.exports = function (market) {
+    exchange.setMarket(market);
     const exports = {};
     const symbolsTraded = loadTradedSignals();
     saveTradeSignals();

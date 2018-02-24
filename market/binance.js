@@ -3,7 +3,7 @@ const _ = require('lodash');
 const ccxt = require('ccxt');
 const binance = require('binance');
 const exchange = new ccxt.binance();
-
+let market;
 // let APIKEY;
 // let SECRET;
 
@@ -21,7 +21,7 @@ const binanceWS = new binance.BinanceWS();
 const streams = binanceWS.streams;
 
 let binanceRest, binanceBusy;
-let tickers24h;
+let tickers24h, tickers24hOk;
 
 module.exports.setKey = function ({api_key, secret}) {
     [APIKEY, SECRET] = [api_key, secret];
@@ -29,6 +29,9 @@ module.exports.setKey = function ({api_key, secret}) {
     exchange.secret = SECRET;
 };
 
+module.exports.setMarket = async function (_market) {
+    market = _market;
+};
 const balance = module.exports.balance = async function (coin) {
     try {
         await exchange.loadMarkets();
@@ -215,6 +218,10 @@ binanceWS.onCombinedStream(
 
 function changeTickers(data) {
     tickers24h = data;
+    tickers24hOk && clearInterval(tickers24hOk);
+    tickers24hOk = setInterval(() => {
+        market && market.emit && market.emit('binance_panic')
+    }, 5e3)
 }
 
 function getGain(buyPrice, sellPrice) {

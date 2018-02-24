@@ -39,6 +39,9 @@ module.exports.start = async function () {
 
     (function ChannelNotifier() {
         let evolution = market.getRunningTrades();
+        market.on('binance_panic', function () {
+            bot.sendMessage(channel, 'NO DATA FROM BINANCE [URGENT]')
+        });
         market.on('buy_order_ok', function (order) {
             evolution[order.symbol] = order;
         });
