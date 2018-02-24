@@ -35,10 +35,9 @@ module.exports.start = async function () {
         debug('ALL_AI_ERROR_EVENT');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]\n" + data.toString()).catch(_.noop));
     });
-
+    let evolution = market.getRunningTrades();
 
     (function ChannelNotifier() {
-        let evolution = market.getRunningTrades();
         market.on('binance_panic', function () {
             bot.sendMessage(channel, 'NO DATA FROM BINANCE [URGENT]')
         });
@@ -297,6 +296,11 @@ module.exports.start = async function () {
         if (activate && !ratio) {
             return await bot.sendMessage(chatId, 'Specifiy the ratio of amount to trade');
         }
+
+        if (!activate) {
+            delete  evolution[symbol]
+        }
+
         let events = {
             'last_buy_event': lastBuyNotifier,
             'last_sell_event': lastSellNotifier,
