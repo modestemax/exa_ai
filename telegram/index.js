@@ -167,7 +167,7 @@ module.exports.start = async function () {
             await    bot.sendMessage(chatId, `<pre>Hello  ${msg.from.first_name}</pre>`, {parse_mode: "HTML"});
             chats[chatId] = {started: true}
         }
-        bot.sendMessage(chatId,
+        await bot.sendMessage(chatId,
             ` /start <i>to start.</i>\n` +
             ` /stop <i>to stop all.</i>\n` +
             ` /pair <i>to show pair status.</i>\n` +
@@ -179,10 +179,10 @@ module.exports.start = async function () {
             '/tradexxxyyyratio <i> to traded a pair.</i>\n' +
             '/notrade(xxxyyy) <i> to trade a pair.</i>\n' +
             '/tradelist <i> to list currently trade pairs.</i>\n' +
-            '/bal(ance) <i> to list all coins balance.</i>\n',
-            '/tradebuypairXX <i> to force buy XX%.</i>\n',
-            '/tradesellpairXX <i> to force sell XX%.</i>\n',
-            '/topxx <i> display pumping.</i>\n',
+            '/bal(ance) <i> to list all coins balance.</i>\n' +
+            '/tradebuypairXX <i> to force buy XX%.</i>\n' +
+            '/tradesellpairXX <i> to force sell XX%.</i>\n' +
+            '/topxx <i> display pumping.</i>\n' +
             '/pricexxxyyy <i> get symbol price.</i>\n',
             {parse_mode: "HTML"});
 
