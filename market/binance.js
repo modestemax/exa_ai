@@ -87,25 +87,31 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             else
                 stopLoss = highPrice + highPrice * (-3 / 100);
 
+            stopLoss = stopLoss && +(+stopLoss).toFixed(8);
+
             if (order.oldGain === order.gain) {
                 return false;
             } else {
 
                 let oldGain = order.oldGain;
                 order.oldGain = order.gain;
-                order.stopLoss = stopLoss && (+stopLoss).toFixed(8);
+                order.stopLoss = stopLoss;
                 if (order.sellPrice <= stopLoss) {
                     if (order.gain > 0)
                         order.stopTrade = true;
                     else
-                        order.resetTrade = true
+                        order.resetTrade = order.isManual
                 }
 
                 order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
                 return (Math.abs(oldGain - order.gain) > .5)
             }
         },
-
+        reset() {
+            order.resetTrade=false;
+            order.stopTrade=false;
+            order.price = getPrice({symbol});
+        },
         status() {
             let {symbol, price, info, gain, stopLoss, sellPrice} = order;
             return `<b>${symbol}</b>\nBuy: ${price}\nLast Price: ${sellPrice}
@@ -114,10 +120,14 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
 <pre>${info}</pre>
 `
         },
-        resume({sold, stopTrade}) {
+        resume({sold, stopTrade, resetTrade}) {
             let {symbol, price, sellPrice} = order;
             let gain = getGain(price, sellPrice);
-            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sold || sellPrice}<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+            if (resetTrade) {
+                return `Resetting trade ${symbol}`
+            }
+            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sold || sellPrice}
+<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
         }
     })
 }
@@ -238,5 +248,5 @@ function changeTickers(data) {
 
 function getGain(buyPrice, sellPrice) {
     let gain = (sellPrice - buyPrice) / buyPrice * 100;
-    return gain.toFixed(2);
+    return +(gain.toFixed(2));
 }

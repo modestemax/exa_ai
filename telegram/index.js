@@ -59,6 +59,7 @@ module.exports.start = async function () {
                 }
                 if (order.resetTrade) {
                     await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                    order.reset();
                 }
             })
             // }, 10e3)
