@@ -157,7 +157,7 @@ module.exports = function (market) {
     function updateTradeSignal({done, signal}) {
         try {
             let symbol = signal.pair;
-            if (done) {
+            if (done || signal.isManual) {
                 signal.done = true;
                 symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
                 return;
