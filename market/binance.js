@@ -3,6 +3,7 @@ const _ = require('lodash');
 const ccxt = require('ccxt');
 const binance = require('binance');
 const exchange = new ccxt.binance();
+const cmc = new ccxt.coinmarketcap();
 let market;
 // let APIKEY;
 // let SECRET;
@@ -29,12 +30,13 @@ module.exports.setKey = function ({api_key, secret}) {
     exchange.secret = SECRET;
 };
 
-module.exports.setMarket = async function (_market) {
+module.exports.loadMarkets = async function (_market) {
     market = _market;
+    await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
 };
 const balance = module.exports.balance = async function (coin) {
     try {
-        await exchange.loadMarkets();
+
         const bal = await  exchange.fetchBalance();
         const balance = _.reduce(bal.free, (balance, val, key) => {
             /trx/i.test(key) && (val -= 4088);
@@ -54,16 +56,56 @@ module.exports.buyMarket = function buyMarket({symbol, ratio, quantity, callback
 module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
     createOrder({side: 'SELL', ratio, symbol, callback, retry});
 };
-module.exports.top10 = function top10({top = 10, quote, min = 2}) {
+module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
     let tickers = _(tickers24h)
         .filter(d => d.priceChangePercent > min)
         .filter(d => quote ? d.symbol.match(new RegExp(quote + '$', 'i')) : true)
         .orderBy(t => +t['priceChangePercent'], 'desc')
         .value()
         .slice(0, top || 10);
-    return tickers;
+    let gainers1h = await topCMC();
+    if (gainers1h) {
+        tickers = _.reduce(tickers, (top, ticker) => {
+            //   exchange;cmc;
+            let currency = ticker.symbol.replace(/(btc|eth|bnb|usdt)$/i, '').toLowerCase();
+            switch (currency) {
+                case 'yoyo':
+                    currency = 'yoyow';
+                    break;
+            }
+            if (gainers1h[currency]) {
+                ticker.percent_change_1h = gainers1h[currency].percent_change_1h;
+                top.push(ticker);
+            }
+            return top;
+        }, []);
+        tickers = _.orderBy(tickers, t => +t['percent_change_1h'], 'desc')
+        return tickers;
+    } else
+        setTimeout(top10, 2e3);
+    return []
 }
 
+async function topCMC() {
+    try {
+
+        let tickers = await  cmc.fetch_tickers();
+        tickers = Object.values(tickers)
+            .map(i => _.pick(i.info, ["id", "name", "symbol", "rank", "price_usd", "price_btc", "24h_volume_usd",
+                "market_cap_usd", "percent_change_1h", "percent_change_24h", "percent_change_7d", "last_updated"]))
+        // let tickers = JSON.parse(require('fs').readFileSync('/home/max/.cmc.json', 'utf8'));
+        tickers = _(tickers).orderBy('percent_change_1h', 'desc')
+            .filter('percent_change_1h')
+            .map(t => Object.assign(t, {symbol: t.symbol.toLowerCase()}))
+            .filter(t => t.percent_change_1h > 0)
+            .mapKeys('symbol')
+            .value();
+        return tickers;
+    } catch (e) {
+        console.log(e.message);
+        //  setTimeout(topCMC, 2e3);
+    }
+}
 
 const getPrice = module.exports.getPrice = function ({symbol, html}) {
     symbol = symbol && symbol.replace('/', '').toUpperCase();

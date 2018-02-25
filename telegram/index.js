@@ -230,9 +230,11 @@ module.exports.start = async function () {
 
     async function top10(msg, {top, quote}) {
         const chatId = msg.chat.id;
-        let tops = market.top10({top, quote})
+        let tops = await market.top10({top, quote})
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
-            return top += '/' + cur.symbol + ' <i>' + cur.priceChangePercent + '%</i>\n'
+            return top += '/' + cur.symbol +
+                ' <i>' + cur.priceChangePercent + '%  [24H]</i>'
+                + '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
         }, '')}`, {parse_mode: "HTML"});
     }
 
