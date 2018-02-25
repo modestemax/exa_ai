@@ -119,17 +119,23 @@ const getPrice = module.exports.getPrice = function ({symbol, html}) {
 
 
 const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, quantity, order}) {
+    let price = getPrice({symbol});
     return order = _.extend({
         symbol,
         gain: 0,
         executedQty: quantity,
-        price: getPrice({symbol})
+        highPrice: order.price || price,
+        price
     }, order, {
         gainChanded() {
             order.sellPrice = getPrice({symbol});
             order.gain = getGain(order.price, order.sellPrice);
-            let highPrice = order.highPrice = Math.max(order.highPrice, order.sellPrice);
+
+            let highPrice = Math.max(order.highPrice, order.sellPrice);
             let stopLoss;
+
+            highPrice = order.highPrice = highPrice || order.highPrice;
+
             if (!order.stopLoss && order.sellPrice < order.price)
                 stopLoss = order.price + order.price * (-3 / 100);
             else
