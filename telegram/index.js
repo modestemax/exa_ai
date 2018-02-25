@@ -51,19 +51,19 @@ module.exports.start = async function () {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
                 if (order.gainChanded()) {
-                    await   bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
+                        bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
                 }
                 if (order.stopTrade || order.sold) {
                     delete evolution[symbol];
-                    await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                      bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                 }
                 if (order.resetTrade) {
-                    await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                      bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                     order.reset();
                 }
             })
-            // }, 10e3)
-        }, 1e3)
+            }, 20e3)
+        // }, 1e3)
     })();
 
     function buySellSignalNotifier(chatId, symbol) {

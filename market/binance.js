@@ -101,10 +101,13 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                         order.stopTrade = true;
                     else
                         order.resetTrade = order.isManual
+                } else {
+                    order.stopTrade = false;
+                    order.resetTrade = false;
                 }
 
                 order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
-                return (Math.abs(oldGain - order.gain) > .5)
+                return (Math.abs(oldGain - order.gain) > .25)
             }
         },
         reset() {
