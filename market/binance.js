@@ -1,5 +1,6 @@
 const debug = require('debug')('market;exchange');
 const _ = require('lodash');
+const EventEmitter = require('events');
 const ccxt = require('ccxt');
 const binance = require('binance');
 const exchange = new ccxt.binance();
@@ -118,13 +119,18 @@ const getPrice = module.exports.getPrice = function ({symbol, html}) {
 
 
 const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, quantity, order}) {
-    return order = _.extend({symbol, gain: 0, executedQty: quantity, price: getPrice({symbol})}, order, {
+    return order = _.extend({
+        symbol,
+        gain: 0,
+        executedQty: quantity,
+        price: getPrice({symbol})
+    }, order, {
         gainChanded() {
             order.sellPrice = getPrice({symbol});
             order.gain = getGain(order.price, order.sellPrice);
-            let highPrice = Math.max(order.highPrice || 0, order.sellPrice);
+            let highPrice = order.highPrice = Math.max(order.highPrice, order.sellPrice);
             let stopLoss;
-            if (order.sellPrice < order.price)
+            if (!order.stopLoss && order.sellPrice < order.price)
                 stopLoss = order.price + order.price * (-3 / 100);
             else
                 stopLoss = highPrice + highPrice * (-3 / 100);
@@ -139,8 +145,10 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                 order.oldGain = order.gain;
                 order.stopLoss = stopLoss;
                 if (order.sellPrice <= stopLoss) {
-                    if (order.gain > 0)
+                    if (order.gain > 0) {
                         order.stopTrade = true;
+                        market.emit('stop_trade', order)
+                    }
                     else
                         order.resetTrade = order.isManual
                 } else {

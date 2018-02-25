@@ -47,6 +47,9 @@ module.exports.start = async function () {
         market.on('sell_order_ok', function (order) {
             evolution[order.symbol].sold = order.price;
         });
+        market.on('stop_trade', function (order) {
+            bot.sendMessage(channel, 'TRADE ENDED ' + order.symbol + ' ' + order.gain + '%');
+        });
         setInterval(() => {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
