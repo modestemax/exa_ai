@@ -51,18 +51,18 @@ module.exports.start = async function () {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
                 if (order.gainChanded()) {
-                        bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
+                    bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
                 }
                 if (order.stopTrade || order.sold) {
                     delete evolution[symbol];
-                      bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                    bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                 }
                 if (order.resetTrade) {
-                      bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                    bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                     order.reset();
                 }
             })
-            }, 20e3)
+        }, 20e3)
         // }, 1e3)
     })();
 
@@ -228,9 +228,9 @@ module.exports.start = async function () {
         await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
     }
 
-    async function top10(msg, {top,quote}) {
+    async function top10(msg, {top, quote}) {
         const chatId = msg.chat.id;
-        let tops = market.top10({top,quote})
+        let tops = market.top10({top, quote})
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
             return top += '/' + cur.symbol + ' <i>' + cur.priceChangePercent + '%</i>\n'
         }, '')}`, {parse_mode: "HTML"});
@@ -302,7 +302,7 @@ module.exports.start = async function () {
         }
 
         if (!activate) {
-            delete  evolution[symbol]
+            symbol ? delete  evolution[symbol] : evolution = {};
         }
 
         let events = {
