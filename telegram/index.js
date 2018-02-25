@@ -50,7 +50,7 @@ module.exports.start = async function () {
         market.on('stop_trade', function (order) {
             bot.sendMessage(channel, 'TRADE ENDED ' + order.symbol + ' ' + order.gain + '%');
         });
-        setInterval(() => {
+        market.on('new_ticker', () => {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
                 if (order.gainChanded()) {
@@ -65,8 +65,7 @@ module.exports.start = async function () {
                     order.reset();
                 }
             })
-        }, 20e3)
-        // }, 1e3)
+        });
     })();
 
     function buySellSignalNotifier(chatId, symbol) {

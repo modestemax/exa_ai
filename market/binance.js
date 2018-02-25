@@ -299,6 +299,7 @@ binanceWS.onCombinedStream(
 
 function changeTickers(data) {
     tickers24h = data;
+    market.emit('new_ticker');
     tickers24hOk && clearInterval(tickers24hOk);
     tickers24hOk = setInterval(() => {
         market && market.emit && market.emit('binance_panic')
