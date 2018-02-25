@@ -57,7 +57,7 @@ module.exports.start = async function () {
                     delete evolution[symbol];
                     await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                 }
-                if (order.resetTrade ) {
+                if (order.resetTrade) {
                     await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                 }
             })
@@ -227,9 +227,9 @@ module.exports.start = async function () {
         await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
     }
 
-    async function top10(msg, {top}) {
+    async function top10(msg, {top,quote}) {
         const chatId = msg.chat.id;
-        let tops = market.top10({top})
+        let tops = market.top10({top,quote})
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
             return top += '/' + cur.symbol + ' <i>' + cur.priceChangePercent + '%</i>\n'
         }, '')}`, {parse_mode: "HTML"});
@@ -417,9 +417,10 @@ module.exports.start = async function () {
                     tradeCreateOrder(msg, {symbol, side, ratio});
                     break;
                 }
-                case /^top(\d*)$/.test(message) : {
-                    let match = message.match(/^top(\d*)$/);
-                    top10(msg, {top: +match[1]});
+                case /^top([^\d]*)(\d*)$/.test(message) : {
+                    let match = message.match(/^top([^\d]*)(\d*)$/);
+                    let [, quote, top] = match;
+                    top10(msg, {top: +top, quote});
                     break;
                 }
                 case /^price(.+)$/.test(message) : {

@@ -54,10 +54,10 @@ module.exports.buyMarket = function buyMarket({symbol, ratio, quantity, callback
 module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
     createOrder({side: 'SELL', ratio, symbol, callback, retry});
 };
-module.exports.top10 = function top10({top = 10, quote = 'btc', min = 2}) {
+module.exports.top10 = function top10({top = 10, quote, min = 2}) {
     let tickers = _(tickers24h)
         .filter(d => d.priceChangePercent > min)
-        // .filter(d => d.symbol.match(new RegExp(quote + '$', 'i')))
+        .filter(d => d.symbol.match(quote ? new RegExp(quote + '$', 'i') : true))
         .orderBy(t => +t['priceChangePercent'], 'desc')
         .value()
         .slice(0, top || 10);
