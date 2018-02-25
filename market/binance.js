@@ -57,7 +57,7 @@ module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noo
 module.exports.top10 = function top10({top = 10, quote, min = 2}) {
     let tickers = _(tickers24h)
         .filter(d => d.priceChangePercent > min)
-        .filter(d => d.symbol.match(quote ? new RegExp(quote + '$', 'i') : true))
+        .filter(d => quote ? d.symbol.match(new RegExp(quote + '$', 'i')) : true)
         .orderBy(t => +t['priceChangePercent'], 'desc')
         .value()
         .slice(0, top || 10);
@@ -108,8 +108,8 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             }
         },
         reset() {
-            order.resetTrade=false;
-            order.stopTrade=false;
+            order.resetTrade = false;
+            order.stopTrade = false;
             order.price = getPrice({symbol});
         },
         status() {
