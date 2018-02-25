@@ -83,7 +83,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             let highPrice = Math.max(order.highPrice || 0, order.sellPrice);
             let stopLoss;
             if (order.sellPrice < order.price)
-                stopLoss = order.price + order.price * (-5 / 100);
+                stopLoss = order.price + order.price * (-3 / 100);
             else
                 stopLoss = highPrice + highPrice * (-3 / 100);
 
@@ -94,11 +94,18 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                 let oldGain = order.oldGain;
                 order.oldGain = order.gain;
                 order.stopLoss = stopLoss && (+stopLoss).toFixed(8);
-                order.stopTrade = order.sellPrice <= stopLoss;
-                order.info = order.stopTrade ? 'Stop Loss Reached [SELL]' : 'Going Smoothly [HOLD]';
+                if (order.sellPrice <= stopLoss) {
+                    if (order.gain > 0)
+                        order.stopTrade = true;
+                    else
+                        order.resetTrade = true
+                }
+
+                order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
                 return (Math.abs(oldGain - order.gain) > .5)
             }
         },
+
         status() {
             let {symbol, price, info, gain, stopLoss, sellPrice} = order;
             return `<b>${symbol}</b>\nBuy: ${price}\nLast Price: ${sellPrice}

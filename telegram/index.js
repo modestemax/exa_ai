@@ -50,14 +50,15 @@ module.exports.start = async function () {
         setInterval(() => {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
-                let sold = order.sold;
                 if (order.gainChanded()) {
                     await   bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
                 }
                 if (order.stopTrade || order.sold) {
                     delete evolution[symbol];
                     await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
-
+                }
+                if (order.resetTrade ) {
+                    await bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
                 }
             })
             // }, 10e3)

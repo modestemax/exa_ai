@@ -76,7 +76,8 @@ function restartExaIfStale() {
 module.exports.isMarketRunning = () => isMarketRunning;
 
 module.exports.track = function ({symbol, activate}) {
-    activate ? symbolsTracked[symbol] = symbolsTracked[symbol] || {} : delete symbolsTracked[symbol];
+    activate ? symbolsTracked[symbol] = symbolsTracked[symbol] || {} :
+        symbol ? delete symbolsTracked[symbol] : _.mapKeys(symbolsTracked, (v,symbol) =>delete symbolsTracked[symbol]);
 };
 
 module.exports.trade = function (...args) {
