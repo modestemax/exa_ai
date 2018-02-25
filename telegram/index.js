@@ -48,6 +48,7 @@ module.exports.start = async function () {
             evolution[order.symbol].sold = order.price;
         });
         market.on('stop_trade', function (order) {
+            delete evolution[order.symbol];
             bot.sendMessage(channel, 'TRADE ENDED ' + order.symbol + ' ' + order.gain + '%');
         });
         market.on('new_ticker', () => {
