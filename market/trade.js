@@ -10,10 +10,7 @@ const amountjson = process.env.HOME + '/.amount.json';
 const gainNotifyManager = {};
 
 module.exports = function (market) {
-    exchange.loadMarkets(market);
     const exports = {};
-    const symbolsTraded = loadTradedSignals();
-    saveTradeSignals();
 
     function loadTradedSignals() {
         let symbols = require(tradejson);
@@ -67,7 +64,7 @@ module.exports = function (market) {
     };
     exports.getRunningTrades = function () {
         return _.keys(symbolsTraded)
-            .filter(symbol => symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.done)
+            .filter(symbol => symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.done && !symbolsTraded[symbol].buy.stopTrade)
             .reduce((running, symbol) => {
                 running[symbol] = exchange.addHelperInOrder({symbol, order: symbolsTraded[symbol].buy})
                 return running;
@@ -245,8 +242,8 @@ module.exports = function (market) {
         }
         if (doAction) {
             let {isManual, ratio} = signal;
-            let quantity = loadAmount({symbol: signal.symbol});
-            if (quantity < 0) {
+            let totalAmount = loadAmount({symbol: signal.symbol});
+            if (totalAmount < 0) {
                 return emit100({
                     event: nok_event,
                     data: `Error when placing order : ${doAction} ${signal.symbol}\n Insufficient amount`
@@ -255,7 +252,7 @@ module.exports = function (market) {
             signal.processing = true;
             exchange[doAction] && exchange[doAction]({
                 symbol: signal.symbol,
-                quantity,
+                totalAmount,
                 ratio,
                 callback: (err, order) => {
                     let {symbol} = order;
@@ -285,6 +282,11 @@ module.exports = function (market) {
             })
         }
     }
+
+    exchange.loadMarkets(market, exports);
+
+    const symbolsTraded = loadTradedSignals();
+    saveTradeSignals();
 
     market.on(LAST_BUY_EVENT, function (signal) {
         placeOrder({signal, ok_event: 'buy_order_ok', nok_event: 'buy_order_error'})

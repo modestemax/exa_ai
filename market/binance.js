@@ -9,7 +9,7 @@ const binance = require('binance');
 const MARKET_TIMEOUT = DEBUG ? 50e3 : 10e3;
 const exchange = new ccxt.binance({timeout: MARKET_TIMEOUT});
 const cmc = new ccxt.coinmarketcap({timeout: MARKET_TIMEOUT});
-let market;
+let market, trade;
 // let APIKEY;
 // let SECRET;
 
@@ -35,8 +35,9 @@ module.exports.setKey = function ({api_key, secret}) {
     exchange.secret = SECRET;
 };
 
-module.exports.loadMarkets = async function (_market) {
+module.exports.loadMarkets = async function (_market, _trade) {
     market = _market;
+    trade = _trade;
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
         console.log('Markets loaded')
@@ -60,8 +61,8 @@ const balance = module.exports.balance = async function (coin) {
     }
 };
 
-module.exports.buyMarket = function buyMarket({symbol, ratio, quantity, callback = _.noop, retry = 5}) {
-    createOrder({side: 'BUY', ratio, quantity, symbol, callback, retry});
+module.exports.buyMarket = function buyMarket({symbol, ratio, totalAmount, callback = _.noop, retry = 5}) {
+    createOrder({side: 'BUY', ratio, totalAmount, symbol, callback, retry});
 };
 
 module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noop, retry = 5}) {
@@ -136,7 +137,7 @@ async function topCMC() {
 }
 
 const getPrice = module.exports.getPrice = function ({symbol, html}) {
-    // symbol = symbol && symbol.replace('/', '').toUpperCase();
+    symbol = symbol && symbol.replace('/', '');
     let ticker = _.find(tickers24h, t => new RegExp(symbol, 'i').test(t.symbol));
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
@@ -157,44 +158,47 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             transactTime: new Date().getTime()
         }, order, {
             gainChanded() {
-                order.sellPrice = getPrice({symbol});
-                order.gain = getGain(order.price, order.sellPrice);
+                try {
+                    order.sellPrice = getPrice({symbol});
+                    order.gain = getGain(order.price, order.sellPrice);
 
-                let highPrice = Math.max(order.highPrice, order.sellPrice);
-                let stopLoss;
+                    let highPrice = Math.max(order.highPrice, order.sellPrice);
+                    let stopLoss;
 
-                highPrice = order.highPrice = highPrice || order.highPrice;
+                    highPrice = order.highPrice = highPrice || order.highPrice;
 
-                if (!order.stopLoss && order.sellPrice < order.price)
-                    stopLoss = order.price + order.price * (-3 / 100);
-                else
-                    stopLoss = highPrice + highPrice * (-3 / 100);
+                    if (!order.stopLoss && order.sellPrice < order.price)
+                        stopLoss = order.price + order.price * (-3 / 100);
+                    else
+                        stopLoss = highPrice + highPrice * (-3 / 100);
 
-                stopLoss = stopLoss && +(+stopLoss).toFixed(8);
+                    stopLoss = stopLoss && +(+stopLoss).toFixed(8);
 
-                if (order.oldGain === order.gain) {
-                    return false;
-                } else {
+                    if (order.oldGain === order.gain) {
+                        return false;
+                    } else {
 
-                    let oldGain = order.oldGain;
-                    order.oldGain = order.gain;
-                    order.stopLoss = stopLoss;
-                    if (order.sellPrice <= stopLoss) {
-                        order.stopTrade = true;
+                        let oldGain = order.oldGain;
+                        order.oldGain = order.gain;
+                        order.stopLoss = stopLoss;
+                        if (order.sellPrice <= stopLoss) {
+                            order.stopTrade = true;
 
-                        if (order.gain > 0 || order.realTime) {
-                            market.emit('stop_trade', order)
-                        } else if (order.isManual) {
-                            // market.emit('reset_trade', order)
-                            // order.reset();
-                            market.emit('stop_trade', order)
+                            if (order.gain > 0 || order.realTime) {
+                                market.emit('stop_trade', order)
+                            } else if (order.isManual) {
+                                // market.emit('reset_trade', order)
+                                // order.reset();
+                                market.emit('stop_trade', order)
+                            }
                         }
+                        order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
+                        return (Math.abs(oldGain - order.gain) > .25);
                     }
-                    order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
-                    return (Math.abs(oldGain - order.gain) > .25);
                 }
-
-
+                finally {
+                    trade.updateTradeSignal({signal: order});
+                }
             },
             reset() {
                 order.stopTrade = false;
@@ -212,29 +216,30 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
 <pre>${info}</pre>`
             }
             ,
-            resume({sold, stopTrade, resetTrade}) {
+            resume({sold}) {
                 let {symbol, price, sellPrice} = order;
                 let gain = getGain(price, sellPrice);
-                if (resetTrade) {
-                    return `Resetting trade ${symbol}`
-                }
                 return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sold || sellPrice}
 <pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
             }
         }
-    )
+    );
+    trade.updateTradeSignal({signal: order});
 }
 
 
-async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100, callback = _.noop, retry = 5}) {
+async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 100, callback = _.noop, retry = 5}) {
     try {
-        binanceBusy && setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 500);
+        binanceBusy && setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry}), 500);
         binanceBusy = true;
         if (symbol) {
+            let quantity;
             const [base, quote] = symbol.split('/');
             binanceRest = createBinanceRest();
             if (side === 'BUY') {
-                quantity = quantity * ratio / 100;
+                let price = getPrice({symbol})
+                let amount = totalAmount * ratio / 100;
+                quantity = amount / price;
             } else {
                 quantity = await balance(base);
             }
@@ -244,7 +249,7 @@ async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100
             let newOrder = 'newOrder';
             if (process.env.NODE_ENV !== 'production' || true) {
                 newOrder = 'testOrder';
-                quantity = 10;
+                //  totalAmount = 10;
             }
             let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
             order = addHelperInOrder({order, symbol: baseQuote, quantity});
@@ -259,7 +264,7 @@ async function createOrder({side, type = 'MARKET', symbol, quantity, ratio = 100
             setImmediate(() => callback(err));
         }
         if (retry)
-            setTimeout(() => createOrder({side, type, symbol, callback, retry: --retry}), 1e3);
+            setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry: --retry}), 1e3);
         else
             setImmediate(() => callback(err));
     } finally {

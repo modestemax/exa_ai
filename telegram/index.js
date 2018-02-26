@@ -180,10 +180,11 @@ module.exports.start = async function () {
             '/notrade <i> to stop trade a pair.</i>\n' +
             '/tradelist <i> to list signals.</i>\n' +
             '/bal(ance) <i> to list all coins balance.</i>\n' +
+            '/amount <i> to list all tradable amount by coins. or to set amount (ex: /amountbtc value)</i>\n' +
             '/tradebuy <i> to force buy XX%.</i>\n' +
             '/tradesell <i> to force sell XX%.</i>\n' +
             '/top <i> display top pumping.</i>\n' +
-            '/top1h <i> display top pumping.</i>\n' +
+            '/top1h <i> display top cmc pumping.</i>\n' +
             '/btcusdt <i> get symbol price.</i>\n',
             {parse_mode: "HTML"});
     }
@@ -221,7 +222,7 @@ module.exports.start = async function () {
 
     async function amountList(msg) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, _.map(await market.amountList(), (quantity, coin) => `<pre>${coin}: ${quantity}</pre>`).join(''), {parse_mode: "HTML"});
+        bot.sendMessage(chatId, _.map(await market.amountList(), (amount, coin) => `<pre>${coin}: ${amount}</pre>`).join(''), {parse_mode: "HTML"});
     }
 
     async function tradeCreateOrder(msg, {symbol, side, ratio}) {
