@@ -156,6 +156,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
     return order = _.extend({
             symbol,
             gain: 0,
+            index: 0,
             executedQty: quantity,
             highPrice: order.price || price,
             price,
