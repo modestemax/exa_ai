@@ -82,6 +82,9 @@ module.exports = function (market) {
     exports.top10 = function (...args) {
         return exchange.top10.apply(exchange, args)
     };
+    exports.top1h = function (...args) {
+        return exchange.top1h.apply(exchange, args)
+    };
     exports.getPrice = function (...args) {
         return exchange.getPrice.apply(exchange, args)
     };
@@ -228,46 +231,55 @@ module.exports = function (market) {
     }
 
     function placeOrder({signal, ok_event, nok_event}) {
-        let doAction = signal.action === 'buy' ? 'buyMarket' : 'sellMarket';
-        let {isManual, ratio} = signal;
-        let quantity = loadAmount({symbol: signal.symbol});
-        if (quantity < 0) {
-            return emit100({
-                event: nok_event,
-                data: `Error when placing order : ${doAction} ${signal.symbol}\n Insufficient amount`
-            });
+        let doAction;
+        switch (signal && signal.action) {
+            case  'buy' :
+                doAction = 'buyMarket';
+                break;
+            case 'sell':
+                doAction = 'sellMarket';
         }
-        signal.processing = true;
-        exchange[doAction] && exchange[doAction]({
-            symbol: signal.symbol,
-            quantity,
-            ratio,
-            callback: (err, order) => {
-                let {symbol} = order;
-                symbol = symbol && symbol.toLowerCase();
-                signal.processing = false;
-                if (err) {
-                    emit100({
-                        event: nok_event,
-                        data: `Error when placing order : ${doAction} ${symbol}\n ${err.toString()}`
-                    });
-                } else {
-                    if (isManual) {
-                        let date = new Date();
-                        let time = date.getTime();
-                        let raw_date = [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' ');
-
-                        signal = _.extend({
-                            time, date, raw_date,
-                            "processing": false,
-                            "done": true
-                        }, signal, order, {symbol, pair: symbol});
-                    }
-                    updateTradeSignal({signal, done: true});
-                    emit100({event: ok_event, data: order, emit: 1});
-                }
+        if (doAction) {
+            let {isManual, ratio} = signal;
+            let quantity = loadAmount({symbol: signal.symbol});
+            if (quantity < 0) {
+                return emit100({
+                    event: nok_event,
+                    data: `Error when placing order : ${doAction} ${signal.symbol}\n Insufficient amount`
+                });
             }
-        })
+            signal.processing = true;
+            exchange[doAction] && exchange[doAction]({
+                symbol: signal.symbol,
+                quantity,
+                ratio,
+                callback: (err, order) => {
+                    let {symbol} = order;
+                    symbol = symbol && symbol.toLowerCase();
+                    signal.processing = false;
+                    if (err) {
+                        emit100({
+                            event: nok_event,
+                            data: `Error when placing order : ${doAction} ${symbol}\n ${err.toString()}`
+                        });
+                    } else {
+                        if (isManual) {
+                            let date = new Date();
+                            let time = date.getTime();
+                            let raw_date = [date.toDateString().split(' ').splice(1, 2).join(' '), date.toLocaleTimeString().split(':').slice(0, -1).join(':')].join(' ');
+
+                            signal = _.extend({
+                                time, date, raw_date,
+                                "processing": false,
+                                "done": true
+                            }, signal, order, {symbol, pair: symbol});
+                        }
+                        updateTradeSignal({signal, done: true});
+                        emit100({event: ok_event, data: order, emit: 1});
+                    }
+                }
+            })
+        }
     }
 
     market.on(LAST_BUY_EVENT, function (signal) {

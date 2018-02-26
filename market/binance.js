@@ -1,6 +1,7 @@
-const debug = require('debug')('market;exchange');
+const debug = require('debug')('market:binance');
 const _ = require('lodash');
 const EventEmitter = require('events');
+const Promise = require('bluebird');
 const ccxt = require('ccxt');
 const binance = require('binance');
 const exchange = new ccxt.binance();
@@ -33,7 +34,12 @@ module.exports.setKey = function ({api_key, secret}) {
 
 module.exports.loadMarkets = async function (_market) {
     market = _market;
-    await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
+    try {
+        await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
+    } catch (ex) {
+        console.log(ex);
+        debug("can't load market, restarting")
+    }
 };
 const balance = module.exports.balance = async function (coin) {
     try {
@@ -82,8 +88,27 @@ module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
         }, []);
         tickers = _.orderBy(tickers, t => +t['percent_change_1h'], 'desc')
         return tickers;
-    } else
-        setTimeout(top10, 2e3);
+    }
+    return []
+}
+
+module.exports.top1h = async function top10({top = 10, min = 0} = {}) {
+    let binanceCurrencies = exchange.currencies;
+    let gainers1h = await topCMC();
+    if (gainers1h) {
+        gainers1h = gainers1h.reduce((top1h, gainer) => {
+            switch (gainer.symbol) {
+                case 'yoyow':
+                    gainer.symbol = 'yoyo';
+                    break;
+            }
+            if (binanceCurrencies[gainer.symbol]) {
+                top1h.push(gainer);
+            }
+            return top1h;
+        }, []);
+        return gainers1h;
+    }
     return []
 }
 

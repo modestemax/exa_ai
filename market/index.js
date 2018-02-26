@@ -188,6 +188,8 @@ const tradeListSymbol = module.exports.tradeListSymbol = function () {
 };
 const top10 = module.exports.top10 = function (...args) {
     return trade.top10.apply(trade, args)
+};const top1h = module.exports.top1h = function (...args) {
+    return trade.top1h.apply(trade, args)
 };
 const getPrice = module.exports.getPrice = function (...args) {
     return trade.getPrice.apply(trade, args)

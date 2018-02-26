@@ -173,19 +173,19 @@ module.exports.start = async function () {
             ` /pair <i>to show pair status.</i>\n` +
             ` /exa <i>to restart exa ai.</i>\n` +
             ` /list <i>to show all coins.</i>\n` +
-            '/trackxxxyyy <i> to track a pair.</i> \n' +
-            '/notrack(xxxyyy)<i> to stop track a pair.</i>\n ' +
+            '/track <i> to track a pair.</i> \n' +
+            '/notrack <i> to stop track a pair.</i>\n ' +
             '/tracklist <i> to list currently tracked pairs.</i>\n' +
-            '/tradexxxyyyratio <i> to traded a pair.</i>\n' +
-            '/notrade(xxxyyy) <i> to trade a pair.</i>\n' +
-            '/tradelist <i> to list currently trade pairs.</i>\n' +
+            '/trade <i> to traded a pair.</i>\n' +
+            '/notrade <i> to stop trade a pair.</i>\n' +
+            '/tradelist <i> to list signals.</i>\n' +
             '/bal(ance) <i> to list all coins balance.</i>\n' +
-            '/tradebuypairXX <i> to force buy XX%.</i>\n' +
-            '/tradesellpairXX <i> to force sell XX%.</i>\n' +
-            '/topxx <i> display pumping.</i>\n' +
-            '/pricexxxyyy <i> get symbol price.</i>\n',
+            '/tradebuy <i> to force buy XX%.</i>\n' +
+            '/tradesell <i> to force sell XX%.</i>\n' +
+            '/top <i> display top pumping.</i>\n' +
+            '/top1h <i> display top pumping.</i>\n' +
+            '/btcusdt <i> get symbol price.</i>\n',
             {parse_mode: "HTML"});
-
     }
 
     function stop(msg) {
@@ -237,6 +237,16 @@ module.exports.start = async function () {
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
             return top += '/' + cur.symbol +
                 ' <i>' + cur.priceChangePercent + '%  [24H]</i>'
+                + '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
+        }, '')}`, {parse_mode: "HTML"});
+    }
+    async function top1h(msg,{top}) {
+        const chatId = msg.chat.id;
+        let tops = await market.top1h({top})
+        bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
+            return top += '/' + cur.symbol +
+                ' <i>' + cur.percent_change_7j + '%  [24H]</i>'
+                ' <i>' + cur.percent_change_24h + '%  [24H]</i>'
                 + '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
         }, '')}`, {parse_mode: "HTML"});
     }
@@ -427,6 +437,12 @@ module.exports.start = async function () {
                     let match = message.match(/^top([^\d]*)(\d*)$/);
                     let [, quote, top] = match;
                     top10(msg, {top: +top, quote});
+                    break;
+                }
+                case /^top1h(\d*)$/.test(message) : {
+                    let match = message.match(/^top1h(\d*)$/);
+                    let [,  top] = match;
+                    top1h(msg,{top});
                     break;
                 }
                 case /^price(.+)$/.test(message) : {
