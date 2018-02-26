@@ -165,6 +165,10 @@ module.exports = function (market) {
                 symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
                 return;
             }
+            if (symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.isManual ||
+                symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.isManual) {
+                return;
+            }
             //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
             if ((symbolsTraded[symbol] && symbolsTraded[symbol][signal.action] && symbolsTraded[symbol][signal.action].done)) {
                 //store next same signal
@@ -186,11 +190,11 @@ module.exports = function (market) {
                         let sellPrice = sellSignal.sellPrice = sellSignal.price;
                         let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
 
-                        gain = Math.round(gain * 100) / 100;
+                        gain = +(+gain).toFixed(2);
 
                         sellSignal.gain = gain;
                         sellSignal.buySignal = buySignal;
-                        market.notify({
+                        buySignal.isManual || market.notify({
                             symbol,
                             rateLimitManager: gainNotifyManager,
                             eventName: 'potential_gain',

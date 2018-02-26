@@ -51,6 +51,10 @@ module.exports.start = async function () {
             delete evolution[order.symbol];
             bot.sendMessage(channel, 'TRADE ENDED ' + order.symbol + ' ' + order.gain + '%');
         });
+        market.on('reset_trade', function (order) {
+            delete evolution[order.symbol];
+            bot.sendMessage(channel, 'RESETTING TRADE ' + order.symbol + ' ' + order.gain + '%');
+        });
         market.on('new_ticker', () => {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
@@ -60,10 +64,6 @@ module.exports.start = async function () {
                 if (order.stopTrade || order.sold) {
                     delete evolution[symbol];
                     bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
-                }
-                if (order.resetTrade) {
-                    bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
-                    order.reset();
                 }
             })
         });
@@ -240,14 +240,15 @@ module.exports.start = async function () {
                 + '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
         }, '')}`, {parse_mode: "HTML"});
     }
-    async function top1h(msg,{top}) {
+
+    async function top1h(msg, {top}) {
         const chatId = msg.chat.id;
         let tops = await market.top1h({top})
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
             return top += '/' + cur.symbol +
-                ' <i>' + cur.percent_change_7j + '%  [24H]</i>'
-                ' <i>' + cur.percent_change_24h + '%  [24H]</i>'
-                + '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
+                '  <i>' + cur.percent_change_7d + '% [7d]</i>'+
+            '   <i>' + cur.percent_change_24h + '% [24H]</i>'+
+            '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
         }, '')}`, {parse_mode: "HTML"});
     }
 
@@ -441,8 +442,8 @@ module.exports.start = async function () {
                 }
                 case /^top1h(\d*)$/.test(message) : {
                     let match = message.match(/^top1h(\d*)$/);
-                    let [,  top] = match;
-                    top1h(msg,{top});
+                    let [, top] = match;
+                    top1h(msg, {top});
                     break;
                 }
                 case /^price(.+)$/.test(message) : {

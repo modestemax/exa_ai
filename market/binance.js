@@ -1,11 +1,14 @@
 const debug = require('debug')('market:binance');
+const DEBUG = process.env.NODE_ENV !== 'production';
+const moment = require('moment');
 const _ = require('lodash');
 const EventEmitter = require('events');
 const Promise = require('bluebird');
 const ccxt = require('ccxt');
 const binance = require('binance');
-const exchange = new ccxt.binance();
-const cmc = new ccxt.coinmarketcap();
+const MARKET_TIMEOUT = DEBUG ? 50e3 : 10e3;
+const exchange = new ccxt.binance({timeout: MARKET_TIMEOUT});
+const cmc = new ccxt.coinmarketcap({timeout: MARKET_TIMEOUT});
 let market;
 // let APIKEY;
 // let SECRET;
@@ -36,6 +39,7 @@ module.exports.loadMarkets = async function (_market) {
     market = _market;
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
+        console.log('Markets loaded')
     } catch (ex) {
         console.log(ex);
         debug("can't load market, restarting")
@@ -64,12 +68,13 @@ module.exports.sellMarket = function sellMarket({symbol, ratio, callback = _.noo
     createOrder({side: 'SELL', ratio, symbol, callback, retry});
 };
 module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
+    top = top || 10;
     let tickers = _(tickers24h)
         .filter(d => d.priceChangePercent > min)
         .filter(d => quote ? d.symbol.match(new RegExp(quote + '$', 'i')) : true)
         .orderBy(t => +t['priceChangePercent'], 'desc')
         .value()
-        .slice(0, top || 10);
+        .slice(0, top);
     let gainers1h = await topCMC();
     if (gainers1h) {
         tickers = _.reduce(tickers, (top, ticker) => {
@@ -93,9 +98,11 @@ module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
 }
 
 module.exports.top1h = async function top10({top = 10, min = 0} = {}) {
-    let binanceCurrencies = exchange.currencies;
+    top = top || 10;
+    let binanceCurrencies = _.mapKeys(exchange.currencies, (v, k) => k.toLowerCase());
     let gainers1h = await topCMC();
     if (gainers1h) {
+        gainers1h = _.values(gainers1h)
         gainers1h = gainers1h.reduce((top1h, gainer) => {
             switch (gainer.symbol) {
                 case 'yoyow':
@@ -107,7 +114,8 @@ module.exports.top1h = async function top10({top = 10, min = 0} = {}) {
             }
             return top1h;
         }, []);
-        return gainers1h;
+        gainers1h = _.orderBy(gainers1h, t => +t['percent_change_1h'], 'desc');
+        return gainers1h.slice(0, top)
     }
     return []
 }
@@ -146,74 +154,79 @@ const getPrice = module.exports.getPrice = function ({symbol, html}) {
 const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, quantity, order}) {
     let price = getPrice({symbol});
     return order = _.extend({
-        symbol,
-        gain: 0,
-        executedQty: quantity,
-        highPrice: order.price || price,
-        price
-    }, order, {
-        gainChanded() {
-            order.sellPrice = getPrice({symbol});
-            order.gain = getGain(order.price, order.sellPrice);
+            symbol,
+            gain: 0,
+            executedQty: quantity,
+            highPrice: order.price || price,
+            price,
+            transactTime: new Date().getTime()
+        }, order, {
+            gainChanded() {
+                order.sellPrice = getPrice({symbol});
+                order.gain = getGain(order.price, order.sellPrice);
 
-            let highPrice = Math.max(order.highPrice, order.sellPrice);
-            let stopLoss;
+                let highPrice = Math.max(order.highPrice, order.sellPrice);
+                let stopLoss;
 
-            highPrice = order.highPrice = highPrice || order.highPrice;
+                highPrice = order.highPrice = highPrice || order.highPrice;
 
-            if (!order.stopLoss && order.sellPrice < order.price)
-                stopLoss = order.price + order.price * (-3 / 100);
-            else
-                stopLoss = highPrice + highPrice * (-3 / 100);
+                if (!order.stopLoss && order.sellPrice < order.price)
+                    stopLoss = order.price + order.price * (-3 / 100);
+                else
+                    stopLoss = highPrice + highPrice * (-3 / 100);
 
-            stopLoss = stopLoss && +(+stopLoss).toFixed(8);
+                stopLoss = stopLoss && +(+stopLoss).toFixed(8);
 
-            if (order.oldGain === order.gain) {
-                return false;
-            } else {
-
-                let oldGain = order.oldGain;
-                order.oldGain = order.gain;
-                order.stopLoss = stopLoss;
-                if (order.sellPrice <= stopLoss) {
-                    if (order.gain > 0) {
-                        order.stopTrade = true;
-                        market.emit('stop_trade', order)
-                    }
-                    else
-                        order.resetTrade = order.isManual
+                if (order.oldGain === order.gain) {
+                    return false;
                 } else {
-                    order.stopTrade = false;
-                    order.resetTrade = false;
+
+                    let oldGain = order.oldGain;
+                    order.oldGain = order.gain;
+                    order.stopLoss = stopLoss;
+                    if (order.sellPrice <= stopLoss) {
+                        order.stopTrade = true;
+
+                        if (order.gain > 0 || order.realTime) {
+                            market.emit('stop_trade', order)
+                        } else if (order.isManual) {
+                            market.emit('reset_trade', order)
+                            order.reset();
+                        }
+                    }
+                    order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
+                    return (Math.abs(oldGain - order.gain) > .25);
                 }
 
-                order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
-                return (Math.abs(oldGain - order.gain) > .25)
+
+            },
+            reset() {
+                order.stopTrade = false;
+                order.price = getPrice({symbol});
+                order.highPrice = 0;
             }
-        },
-        reset() {
-            order.resetTrade = false;
-            order.stopTrade = false;
-            order.price = getPrice({symbol});
-        },
-        status() {
-            let {symbol, price, info, gain, stopLoss, sellPrice} = order;
-            return `<b>${symbol}</b>\nBuy: ${price}\nLast Price: ${sellPrice}
+            ,
+            status() {
+                order.index = order.index || 0;
+                let duration = moment.duration(new Date().getTime() - order.transactTime).humanize();
+                let {symbol, price, info, gain, stopLoss, sellPrice} = order;
+                return `<b>${symbol} </b> <i>#${order.index++}/${duration}</i>\nBuy: ${price}\nLast Price: ${sellPrice}
 <pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> 
 <pre>StopLoss ${stopLoss}</pre>
-<pre>${info}</pre>
-`
-        },
-        resume({sold, stopTrade, resetTrade}) {
-            let {symbol, price, sellPrice} = order;
-            let gain = getGain(price, sellPrice);
-            if (resetTrade) {
-                return `Resetting trade ${symbol}`
+<pre>${info}</pre>`
             }
-            return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sold || sellPrice}
+            ,
+            resume({sold, stopTrade, resetTrade}) {
+                let {symbol, price, sellPrice} = order;
+                let gain = getGain(price, sellPrice);
+                if (resetTrade) {
+                    return `Resetting trade ${symbol}`
+                }
+                return `<b>${symbol}</b> <i>End of Trade</i>\nBuy at ${price}\nSell at ${sold || sellPrice}
 <pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <b>${gain > 2 ? 'Well Done' : 'Bad Trade'}</b>`
+            }
         }
-    })
+    )
 }
 
 
