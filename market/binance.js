@@ -77,7 +77,7 @@ module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
         .slice(0, top);
     let gainers1h = await topCMC();
     if (gainers1h) {
-        tickers = _.reduce(tickers, (top, ticker) => {
+        _.forEach(tickers, ticker => {
             //   exchange;cmc;
             let currency = ticker.symbol.replace(/(btc|eth|bnb|usdt)$/i, '').toLowerCase();
             switch (currency) {
@@ -85,16 +85,10 @@ module.exports.top10 = async function top10({top = 10, quote, min = 0} = {}) {
                     currency = 'yoyow';
                     break;
             }
-            if (gainers1h[currency]) {
-                ticker.percent_change_1h = gainers1h[currency].percent_change_1h;
-                top.push(ticker);
-            }
-            return top;
-        }, []);
-        tickers = _.orderBy(tickers, t => +t['percent_change_1h'], 'desc')
-        return tickers;
+            ticker.percent_change_1h = gainers1h[currency] ? gainers1h[currency].percent_change_1h : "N/A";
+        });
     }
-    return []
+    return tickers;
 }
 
 module.exports.top1h = async function top10({top = 10, min = 0} = {}) {
@@ -142,8 +136,8 @@ async function topCMC() {
 }
 
 const getPrice = module.exports.getPrice = function ({symbol, html}) {
-    symbol = symbol && symbol.replace('/', '').toUpperCase();
-    let ticker = _.find(tickers24h, {symbol});
+    // symbol = symbol && symbol.replace('/', '').toUpperCase();
+    let ticker = _.find(tickers24h, t => new RegExp(symbol, 'i').test(t.symbol));
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
@@ -191,8 +185,9 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                         if (order.gain > 0 || order.realTime) {
                             market.emit('stop_trade', order)
                         } else if (order.isManual) {
-                            market.emit('reset_trade', order)
-                            order.reset();
+                            // market.emit('reset_trade', order)
+                            // order.reset();
+                            market.emit('stop_trade', order)
                         }
                     }
                     order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
