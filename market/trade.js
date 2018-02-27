@@ -226,7 +226,7 @@ module.exports = function (market) {
         return symbolsTraded[symbol]['sell'];
     }
 
-    function emit100({event, data, emit = 5, delay = 10e3}) {
+    function emit100({event, data, emit = 1, delay = 10e3}) {
         market.emit(event, data);
         --emit && setTimeout(() => emit100({event, data, emit, delay}), delay);
     }
