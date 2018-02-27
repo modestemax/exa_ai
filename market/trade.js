@@ -33,6 +33,70 @@ module.exports = function (market) {
         fs.writeFileSync(tradejson, JSON.stringify(symbolsTraded))
     }
 
+    const updateTradeSignal = exports.updateTradeSignal = function ({done, signal}) {
+        try {
+            let symbol = signal.pair;
+            if (done || signal.isManual) {
+                signal.done = true;
+                symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
+                return;
+            }
+            if (symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.isManual ||
+                symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.isManual) {
+                return;
+            }
+            //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
+            if ((symbolsTraded[symbol] && symbolsTraded[symbol][signal.action] && symbolsTraded[symbol][signal.action].done)) {
+                //store next same signal
+                symbolsTraded[symbol][signal.action].next = signal;
+                return;
+            }
+            let ratio = symbolsTraded[symbol].ratio;
+            switch (signal.action) {
+                case 'buy':
+                    signal.ratio = ratio;
+                    symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio};
+                    break;
+                case 'sell':
+                    let sellSignal = signal;
+                    let buySignal = symbolsTraded[symbol] && symbolsTraded[symbol].buy
+                        || symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.buySignal;
+                    if (buySignal) {
+                        let buyPrice = sellSignal.buyPrice = buySignal.price;
+                        let sellPrice = sellSignal.sellPrice = sellSignal.price;
+                        let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
+
+                        gain = +(+gain).toFixed(2);
+
+                        sellSignal.gain = gain;
+                        sellSignal.buySignal = buySignal;
+                        buySignal.isManual || market.notify({
+                            symbol,
+                            rateLimitManager: gainNotifyManager,
+                            eventName: 'potential_gain',
+                            key: 'gain',
+                            delay: 30e3,
+                            signal: {
+                                symbol,
+                                buyPrice,
+                                sellPrice,
+                                gain,
+                                buyTime: buySignal.raw_date,
+                                sellTime: sellSignal.raw_date,
+                                price: sellPrice
+                            }
+                        });
+                        // market.emit('gain', {symbol, buyPrice, sellPrice, gain});
+
+                        symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
+                    }
+                    break;
+            }
+        } finally {
+            saveTradeSignals();
+        }
+    };
+
     exports.trade = function (...args) {
         let [{activate}] = args;
         activate ? startTrade.apply(null, args) : stopTrade.apply(null, args);
@@ -154,70 +218,6 @@ module.exports = function (market) {
         return _.keys(symbolsTraded)
     }
 
-    function updateTradeSignal({done, signal}) {
-        try {
-            let symbol = signal.pair;
-            if (done || signal.isManual) {
-                signal.done = true;
-                symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
-                return;
-            }
-            if (symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.isManual ||
-                symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.isManual) {
-                return;
-            }
-            //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
-            if ((symbolsTraded[symbol] && symbolsTraded[symbol][signal.action] && symbolsTraded[symbol][signal.action].done)) {
-                //store next same signal
-                symbolsTraded[symbol][signal.action].next = signal;
-                return;
-            }
-            let ratio = symbolsTraded[symbol].ratio;
-            switch (signal.action) {
-                case 'buy':
-                    signal.ratio = ratio;
-                    symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio};
-                    break;
-                case 'sell':
-                    let sellSignal = signal;
-                    let buySignal = symbolsTraded[symbol] && symbolsTraded[symbol].buy
-                        || symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.buySignal;
-                    if (buySignal) {
-                        let buyPrice = sellSignal.buyPrice = buySignal.price;
-                        let sellPrice = sellSignal.sellPrice = sellSignal.price;
-                        let gain = ((sellPrice - buyPrice) / buyPrice) * 100;
-
-                        gain = +(+gain).toFixed(2);
-
-                        sellSignal.gain = gain;
-                        sellSignal.buySignal = buySignal;
-                        buySignal.isManual || market.notify({
-                            symbol,
-                            rateLimitManager: gainNotifyManager,
-                            eventName: 'potential_gain',
-                            key: 'gain',
-                            delay: 30e3,
-                            signal: {
-                                symbol,
-                                buyPrice,
-                                sellPrice,
-                                gain,
-                                buyTime: buySignal.raw_date,
-                                sellTime: sellSignal.raw_date,
-                                price: sellPrice
-                            }
-                        });
-                        // market.emit('gain', {symbol, buyPrice, sellPrice, gain});
-
-                        symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio}
-                    }
-                    break;
-            }
-        } finally {
-            saveTradeSignals();
-        }
-    }
-
     function getBuySignal({symbol}) {
         return symbolsTraded[symbol]['buy'];
     }
@@ -241,29 +241,29 @@ module.exports = function (market) {
                 doAction = 'sellMarket';
         }
         if (doAction) {
-            let {isManual, ratio} = signal;
-            let totalAmount = loadAmount({symbol: signal.symbol});
-            if (totalAmount < 0) {
+            let {isManual, symbol, ratio} = signal;
+            let totalAmount = loadAmount({symbol});
+            if (!totalAmount || totalAmount < 0) {
                 return emit100({
                     event: nok_event,
-                    data: `Error when placing order : ${doAction} ${signal.symbol}\n Insufficient amount`
+                    data: `Error when placing order : ${doAction} ${symbol}\n Insufficient amount`
                 });
             }
             signal.processing = true;
             exchange[doAction] && exchange[doAction]({
-                symbol: signal.symbol,
+                symbol,
                 totalAmount,
                 ratio,
                 callback: (err, order) => {
-                    let {symbol} = order;
-                    symbol = symbol && symbol.toLowerCase();
-                    signal.processing = false;
                     if (err) {
                         emit100({
                             event: nok_event,
                             data: `Error when placing order : ${doAction} ${symbol}\n ${err.toString()}`
                         });
                     } else {
+                        let {symbol} = order;
+                        symbol = symbol && symbol.toLowerCase();
+                        signal.processing = false;
                         if (isManual) {
                             let date = new Date();
                             let time = date.getTime();

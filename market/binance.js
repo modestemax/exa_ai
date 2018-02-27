@@ -237,23 +237,38 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
             const [base, quote] = symbol.split('/');
             binanceRest = createBinanceRest();
             if (side === 'BUY') {
-                let price = getPrice({symbol})
+                let price = getPrice({symbol});
                 let amount = totalAmount * ratio / 100;
                 quantity = amount / price;
             } else {
                 quantity = await balance(base);
             }
 
-
-            const baseQuote = base + quote;
-            let newOrder = 'newOrder';
-            if (process.env.NODE_ENV !== 'production' || true) {
-                newOrder = 'testOrder';
-                //  totalAmount = 10;
+            if (quantity) {
+                quantity = +((+quantity).toFixed(8));
+                const baseQuote = base + quote;
+                let newOrder = 'newOrder';
+                if (process.env.NODE_ENV !== 'production' || true) {
+                    newOrder = 'testOrder';
+                    //  totalAmount = 10;
+                }
+                let order;
+                try {
+                    order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
+                } catch (ex) {
+                    if (/LOT_SIZE/.test(ex.msg)) {
+                        ex.info = 'bad quantity "' + quantity + '" retrying with ' + ((+quantity).toFixed(0));
+                        let err = ex && JSON.stringify(ex.msg);
+                        setImmediate(() => callback(err));
+                        quantity = +((+quantity).toFixed(0));
+                        order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
+                    }
+                }
+                order = addHelperInOrder({order, symbol: baseQuote, quantity});
+                setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
+            } else {
+                callback("Undefined Quantity")
             }
-            let order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
-            order = addHelperInOrder({order, symbol: baseQuote, quantity});
-            setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
         } else {
             callback("Can't " + side + " undefined symbol")
         }
