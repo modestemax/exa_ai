@@ -26,7 +26,8 @@ exchange.secret = SECRET;
 const binanceWS = new binance.BinanceWS();
 const streams = binanceWS.streams;
 
-let binanceRest, binanceBusy;
+let binanceRest = createBinanceRest();
+let binanceBusy;
 let tickers24h, tickers24hOk;
 
 module.exports.setKey = function ({api_key, secret}) {
@@ -252,7 +253,6 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
             let quantity;
             const [base, quote] = symbol.split('/');
             const tradingPair = base + quote;
-            binanceRest = createBinanceRest();
             let minimun = (await loadExchangeInfo())[tradingPair];
             let price = await getPrice({symbol});
 
@@ -298,7 +298,7 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
 
 function createBinanceRest() {
 
-    binanceRest = binanceRest || new binance.BinanceRest({
+    return new binance.BinanceRest({
         key: APIKEY,// 'api-key', // Get this from your account on binance.com
         secret: SECRET,// 'api-secret', // Same for this
         timeout: 15000, // Optional, defaults to 15000, is the request time out in milliseconds
@@ -315,7 +315,6 @@ function createBinanceRest() {
          * the request.
          */
     });
-    return binanceRest;
 }
 
 
