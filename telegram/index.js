@@ -227,9 +227,9 @@ module.exports.start = async function () {
 
     async function tradeCreateOrder(msg, {symbol, side, ratio}) {
         const chatId = msg.chat.id;
-        await market.tradeCreateOrder({symbol, side, ratio});
         await bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
-        await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
+        // await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
+        await market.tradeCreateOrder({symbol, side, ratio});
     }
 
     async function top10(msg, {top, quote}) {
@@ -247,9 +247,9 @@ module.exports.start = async function () {
         let tops = await market.top1h({top})
         bot.sendMessage(chatId, `<b>TOP</b>\n${tops.reduce((top, cur) => {
             return top += '/' + cur.symbol +
-                '  <i>' + cur.percent_change_7d + '% [7d]</i>'+
-            '   <i>' + cur.percent_change_24h + '% [24H]</i>'+
-            '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
+                '  <i>' + cur.percent_change_7d + '% [7d]</i>' +
+                '   <i>' + cur.percent_change_24h + '% [24H]</i>' +
+                '   <i>' + cur.percent_change_1h + '% [1H]</i>\n'
         }, '')}`, {parse_mode: "HTML"});
     }
 

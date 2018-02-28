@@ -40,6 +40,7 @@ module.exports.loadMarkets = async function (_market, _trade) {
     trade = _trade;
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
+
         console.log('Markets loaded')
     } catch (ex) {
         console.log(ex);
@@ -137,7 +138,7 @@ async function topCMC() {
 }
 
 const getPrice = module.exports.getPrice = function ({symbol, html}) {
-    symbol = symbol && symbol.replace('/', '');
+    symbol = symbol && symbol.replace('/', '').toUpperCase();
     let ticker = _.find(tickers24h, t => new RegExp(symbol, 'i').test(t.symbol));
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
@@ -153,7 +154,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             gain: 0,
             index: 0,
             executedQty: quantity,
-            highPrice: order.price || price,
+            highPrice: price,
             price,
             transactTime: new Date().getTime()
         }, order, {
@@ -229,42 +230,37 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
 
 
 async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 100, callback = _.noop, retry = 5}) {
+    if (binanceBusy)
+        return setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry}), 500);
     try {
-        binanceBusy && setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry}), 500);
         binanceBusy = true;
         if (symbol) {
+            let loadExchangeInfo = infoLoader();
             let quantity;
             const [base, quote] = symbol.split('/');
+            const tradingPair = base + quote;
             binanceRest = createBinanceRest();
+            let minimun = (await loadExchangeInfo())[tradingPair];
+            let price = getPrice({symbol});
+
             if (side === 'BUY') {
-                let price = getPrice({symbol});
                 let amount = totalAmount * ratio / 100;
                 quantity = amount / price;
             } else {
                 quantity = await balance(base);
             }
 
+            quantity = (quantity / minimun.stepSize).toFixed(0) * minimun.stepSize;
             if (quantity) {
-                quantity = +((+quantity).toFixed(8));
-                const baseQuote = base + quote;
+
                 let newOrder = 'newOrder';
                 if (process.env.NODE_ENV !== 'production' || true) {
                     newOrder = 'testOrder';
                     //  totalAmount = 10;
                 }
-                let order;
-                try {
-                    order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
-                } catch (ex) {
-                    if (/LOT_SIZE/.test(ex.msg)) {
-                        ex.info = 'bad quantity "' + quantity + '" retrying with ' + ((+quantity).toFixed(0));
-                        let err = ex && JSON.stringify(ex.msg);
-                        setImmediate(() => callback(err));
-                        quantity = +((+quantity).toFixed(0));
-                        order = await binanceRest[newOrder]({symbol: baseQuote, side, type, quantity});
-                    }
-                }
-                order = addHelperInOrder({order, symbol: baseQuote, quantity});
+                let order = await binanceRest[newOrder]({symbol: tradingPair, side, type, quantity});
+
+                order = addHelperInOrder({order, symbol: tradingPair, quantity});
                 setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
             } else {
                 callback("Undefined Quantity")
@@ -363,4 +359,47 @@ function changeTickers(data) {
 function getGain(buyPrice, sellPrice) {
     let gain = (sellPrice - buyPrice) / buyPrice * 100;
     return +(gain.toFixed(2));
+}
+
+function infoLoader() {
+    let minimums;
+    return async function loadExchangeInfo() {
+        return minimums || new Promise((resolve, reject) => {
+            //minNotional = minimum order value (price * quantity)
+            binanceRest.exchangeInfo(function (err, data) {
+                if (err) {
+                    return reject(err)
+                }
+                minimums = {};
+                //   debugger
+                for (let obj of data.symbols) {
+                    let filters = {
+                        minNotional: 0.001,
+                        minQty: 1,
+                        maxQty: 10000000,
+                        stepSize: 1,
+                        minPrice: 0.00000001,
+                        maxPrice: 100000
+                    };
+                    for (let filter of obj.filters) {
+                        if (filter.filterType === "MIN_NOTIONAL") {
+                            filters.minNotional = filter.minNotional;
+                        } else if (filter.filterType === "PRICE_FILTER") {
+                            filters.minPrice = filter.minPrice;
+                            filters.maxPrice = filter.maxPrice;
+                        } else if (filter.filterType === "LOT_SIZE") {
+                            filters.minQty = filter.minQty;
+                            filters.maxQty = filter.maxQty;
+                            filters.stepSize = filter.stepSize;
+                        }
+                    }
+                    minimums[obj.symbol] = filters;
+                }
+                console.log(minimums);
+                resolve(minimums)
+                // fs.writeFile("minimums.json", JSON.stringify(minimums, null, 4), function(err){});
+            });
+        })
+
+    }
 }
