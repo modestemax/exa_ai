@@ -41,8 +41,8 @@ module.exports = function (market) {
                 symbolsTraded[symbol] = {[signal.action]: signal, symbol, ratio: signal.ratio};
                 return;
             }
-            if (symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.isManual ||
-                symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.isManual) {
+            if (symbolsTraded[symbol] && (symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.isManual ||
+                    symbolsTraded[symbol].sell && symbolsTraded[symbol].sell.isManual)) {
                 return;
             }
             //si le meme signal reviens dans une phase ou il a deja ete traiter alors l'ignorer
@@ -126,13 +126,15 @@ module.exports = function (market) {
     exports.getTrades = function () {
         return symbolsTraded
     };
-    exports.getRunningTrades = function () {
-        return _.keys(symbolsTraded)
-            .filter(symbol => symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.done && !symbolsTraded[symbol].buy.stopTrade)
+    exports.getRunningTrades = async function () {
+        let runnings = _.keys(symbolsTraded)
+            .filter(symbol => symbolsTraded[symbol].buy && symbolsTraded[symbol].buy.done && symbolsTraded[symbol].buy.isManual && !symbolsTraded[symbol].buy.stopTrade)
             .reduce((running, symbol) => {
                 running[symbol] = exchange.addHelperInOrder({symbol, order: symbolsTraded[symbol].buy})
                 return running;
             }, {});
+        runnings = await Promise.all(Object.values(runnings))
+        return _.mapKeys(runnings, 'symbol');
     };
     exports.getBalance = async function () {
         return exchange.balance()

@@ -145,15 +145,15 @@ const getPrice = module.exports.getPrice = async function ({symbol, html}) {
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
     } else {
         ticker = await  binanceRest.tickerPrice({symbol});
-        return ticker ? html ? `<b>${price}</b>` : +price : NaN;
+        return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
     }
 };
 
 
-const addHelperInOrder = module.exports.addHelperInOrder = async function addHelperInOrder({symbol, quantity, order}) {
-    let price = await getPrice({symbol});
+const addHelperInOrder = module.exports.addHelperInOrder = async function addHelperInOrder({symbol, price, quantity, order}) {
     order = _.extend({
             symbol,
+            pair: symbol.toLowerCase(),
             gain: 0,
             index: 0,
             executedQty: quantity,
@@ -172,9 +172,9 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
                     highPrice = order.highPrice = highPrice || order.highPrice;
 
                     if (!order.stopLoss && order.sellPrice < order.price)
-                        stopLoss = order.price + order.price * (-3 / 100);
+                        stopLoss = order.price + order.price * (-2 / 100);
                     else
-                        stopLoss = highPrice + highPrice * (-3 / 100);
+                        stopLoss = highPrice + highPrice * (-2 / 100);
 
                     stopLoss = stopLoss && +(+stopLoss).toFixed(8);
 
@@ -197,7 +197,20 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
                             }
                         }
                         order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
-                        return order.index === 0 || (Math.abs(oldGain - order.gain) > .25);
+
+                        let changeToNotify;
+                        switch (true) {
+                            case order.gain < 1:
+                                changeToNotify = .25;
+                                break;
+                            case order.gain < 2:
+                                changeToNotify = .20;
+                                break;
+                            case order.gain > 2:
+                                changeToNotify = .10;
+                                break;
+                        }
+                        return order.index === 0 || (Math.abs(oldGain - order.gain) > changeToNotify);
                     }
                 }
                 finally {
@@ -224,7 +237,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
             }
         }
     );
-    trade.updateTradeSignal({signal: order});
+
     return order;
 }
 
@@ -250,9 +263,8 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
                 quantity = await balance(base);
             }
 
-            quantity = (quantity / minimun.stepSize).toFixed(0) * minimun.stepSize;
+            quantity = +(quantity - quantity % minimun.stepSize).toFixed(8)
             if (quantity) {
-
                 let newOrder = 'newOrder';
                 if (process.env.NODE_ENV !== 'production' || true) {
                     newOrder = 'testOrder';
@@ -260,22 +272,22 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
                 }
                 let order = await binanceRest[newOrder]({symbol: tradingPair, side, type, quantity});
 
-                order = addHelperInOrder({order, symbol: tradingPair, quantity});
+                order = await addHelperInOrder({order, symbol: tradingPair, price, quantity});
                 setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
             } else {
-                callback("Undefined Quantity")
+                callback(`Can't ${side} Undefined Quantity`)
             }
         } else {
-            callback("Can't " + side + " undefined symbol")
+            callback(`Can't ${side} undefined symbol`)
         }
     } catch (ex) {
         let err = ex && JSON.stringify(ex.msg)
         console.log(ex, retry && 'Retrying ' + (1 - retry));
         if (/LOT_SIZE/.test(ex.msg)) {
-            setImmediate(() => callback(err));
+            return setImmediate(() => callback(err));
         }
         if (retry)
-            setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry: --retry}), 1e3);
+            setTimeout(() => createOrder({side, type, totalAmount, ratio, symbol, callback, retry: --retry}), 500);
         else
             setImmediate(() => callback(err));
     } finally {
@@ -395,7 +407,7 @@ function infoLoader() {
                     }
                     minimums[obj.symbol] = filters;
                 }
-                console.log(minimums);
+                //console.log(minimums);
                 resolve(minimums)
                 // fs.writeFile("minimums.json", JSON.stringify(minimums, null, 4), function(err){});
             });

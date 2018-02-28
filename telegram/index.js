@@ -35,7 +35,7 @@ module.exports.start = async function () {
         debug('ALL_AI_ERROR_EVENT');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "Error getting all signals from Exa [URGENT]\n" + data.toString()).catch(_.noop));
     });
-    let evolution = market.getRunningTrades();
+    let evolution = await market.getRunningTrades();
 
     (function ChannelNotifier() {
         market.on('binance_panic', function () {
@@ -228,7 +228,7 @@ module.exports.start = async function () {
     async function tradeCreateOrder(msg, {symbol, side, ratio}) {
         const chatId = msg.chat.id;
         await bot.sendMessage(chatId, 'Processing ' + ratio + '% ' + side, {parse_mode: "HTML"});
-        // await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
+        await trade(msg, {status: side === 'buy' ? 'on' : 'off', ratio, symbol})
         await market.tradeCreateOrder({symbol, side, ratio});
     }
 
@@ -386,7 +386,11 @@ module.exports.start = async function () {
         Object.keys(chats).forEach(async chatId => {
             await bot.sendMessage(chatId, 'Restarting bot');
             _.values(market.getTrades()).forEach(tradeArgs => {
-                trade({chat: {id: chatId}}, {status: 'on', symbol: tradeArgs.symbol, ratio: tradeArgs.ratio})
+                (tradeArgs.buy && tradeArgs.buy.isManual) || trade({chat: {id: chatId}}, {
+                    status: 'on',
+                    symbol: tradeArgs.symbol,
+                    ratio: tradeArgs.ratio
+                })
             })
 
         })
