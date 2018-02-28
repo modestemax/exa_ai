@@ -137,19 +137,22 @@ async function topCMC() {
     }
 }
 
-const getPrice = module.exports.getPrice = function ({symbol, html}) {
+const getPrice = module.exports.getPrice = async function ({symbol, html}) {
     symbol = symbol && symbol.replace('/', '').toUpperCase();
-    let ticker = _.find(tickers24h, t => new RegExp(symbol, 'i').test(t.symbol));
+    let ticker = _.mapKeys(tickers24h, 'symbol')[symbol];
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
-    } else return NaN;
+    } else {
+        ticker = await  binanceRest.tickerPrice({symbol});
+        return ticker ? html ? `<b>${price}</b>` : +price : NaN;
+    }
 };
 
 
-const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInOrder({symbol, quantity, order}) {
-    let price = getPrice({symbol});
-    return order = _.extend({
+const addHelperInOrder = module.exports.addHelperInOrder = async function addHelperInOrder({symbol, quantity, order}) {
+    let price = await getPrice({symbol});
+    order = _.extend({
             symbol,
             gain: 0,
             index: 0,
@@ -158,9 +161,9 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
             price,
             transactTime: new Date().getTime()
         }, order, {
-            gainChanded() {
+            async gainChanded() {
                 try {
-                    order.sellPrice = getPrice({symbol});
+                    order.sellPrice = await getPrice({symbol});
                     order.gain = getGain(order.price, order.sellPrice);
 
                     let highPrice = Math.max(order.highPrice, order.sellPrice);
@@ -176,7 +179,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                     stopLoss = stopLoss && +(+stopLoss).toFixed(8);
 
                     if (order.oldGain === order.gain) {
-                        return false;
+                        return order.index === 0;
                     } else {
 
                         let oldGain = order.oldGain;
@@ -194,29 +197,25 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
                             }
                         }
                         order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
-                        return (Math.abs(oldGain - order.gain) > .25);
+                        return order.index === 0 || (Math.abs(oldGain - order.gain) > .25);
                     }
                 }
                 finally {
                     trade.updateTradeSignal({signal: order});
                 }
             },
-            reset() {
+            async reset() {
                 order.stopTrade = false;
-                order.price = getPrice({symbol});
+                order.price = await getPrice({symbol});
                 order.highPrice = 0;
             }
             ,
             status() {
-                order.index = order.index || 0;
                 let duration = moment.duration(new Date().getTime() - order.transactTime).humanize();
                 let {symbol, price, info, gain, stopLoss, sellPrice} = order;
                 return `<b>${symbol} </b> <i>#${order.index++}/${duration}</i>\nBuy: ${price}\nLast Price: ${sellPrice}
-<pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> 
-<pre>StopLoss ${stopLoss}</pre>
-<pre>${info}</pre>`
-            }
-            ,
+                    <pre>${gain < 0 ? 'Lost' : 'Gain'} ${gain}%</pre> <pre>StopLoss ${stopLoss}</pre><pre>${info}</pre>`
+            },
             resume({sold}) {
                 let {symbol, price, sellPrice} = order;
                 let gain = getGain(price, sellPrice);
@@ -226,6 +225,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = function addHelperInO
         }
     );
     trade.updateTradeSignal({signal: order});
+    return order;
 }
 
 
@@ -241,7 +241,7 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
             const tradingPair = base + quote;
             binanceRest = createBinanceRest();
             let minimun = (await loadExchangeInfo())[tradingPair];
-            let price = getPrice({symbol});
+            let price = await getPrice({symbol});
 
             if (side === 'BUY') {
                 let amount = totalAmount * ratio / 100;

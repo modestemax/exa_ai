@@ -36,7 +36,7 @@ binanceWS.onCombinedStream(
             case streams.allTickers():
                 // console.log('Ticker Event', streamEvent.data);
                 changeTickers(streamEvent.data);
-                getPrice({symbol: 'ethbtc'});
+                // getPrice({symbol: 'ethbtc'});
                 break;
         }
     }

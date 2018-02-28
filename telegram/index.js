@@ -58,12 +58,12 @@ module.exports.start = async function () {
         market.on('new_ticker', () => {
             _.keys(evolution).forEach(async symbol => {
                 let order = evolution[symbol];
-                if (order.gainChanded()) {
-                    bot.sendMessage(channel, order.status(), {parse_mode: "HTML"})
+                if (await order.gainChanded()) {
+                    bot.sendMessage(channel, await order.status(), {parse_mode: "HTML"})
                 }
                 if (order.stopTrade || order.sold) {
                     delete evolution[symbol];
-                    bot.sendMessage(channel, order.resume(order), {parse_mode: "HTML"})
+                    bot.sendMessage(channel, await order.resume(order), {parse_mode: "HTML"})
                 }
             })
         });
@@ -255,7 +255,7 @@ module.exports.start = async function () {
 
     async function getPrice(msg, {symbol}) {
         const chatId = msg.chat.id;
-        bot.sendMessage(chatId, `/${symbol} ${market.getPrice({symbol, html: true})}`, {parse_mode: "HTML"});
+        bot.sendMessage(chatId, `/${symbol} ${await market.getPrice({symbol, html: true})}`, {parse_mode: "HTML"});
     }
 
     async function exa(msg) {
