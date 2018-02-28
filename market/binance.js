@@ -175,7 +175,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
                     if (!order.stopLoss && order.sellPrice < order.price)
                         stopLoss = order.price + order.price * (-2 / 100);
                     else
-                        stopLoss = highPrice + highPrice * (-2 / 100);
+                        stopLoss = highPrice + highPrice * (-3 / 100);
 
                     stopLoss = stopLoss && +(+stopLoss).toFixed(8);
 
