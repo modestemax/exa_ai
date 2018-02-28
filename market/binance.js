@@ -163,6 +163,7 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
             transactTime: new Date().getTime()
         }, order, {
             async gainChanded() {
+                if (order.stopTrade) return false;
                 try {
                     order.sellPrice = await getPrice({symbol});
                     order.gain = getGain(order.price, order.sellPrice);
@@ -188,14 +189,15 @@ const addHelperInOrder = module.exports.addHelperInOrder = async function addHel
                         order.stopLoss = stopLoss;
                         if (order.sellPrice <= stopLoss) {
                             order.stopTrade = true;
+                            market.emit('stop_trade', order)
 
-                            if (order.gain > 0 || order.realTime) {
-                                market.emit('stop_trade', order)
-                            } else if (order.isManual) {
-                                // market.emit('reset_trade', order)
-                                // order.reset();
-                                market.emit('stop_trade', order)
-                            }
+                            // if (order.gain > 0 || order.realTime) {
+                            //     market.emit('stop_trade', order)
+                            // } else if (order.isManual) {
+                            //     // market.emit('reset_trade', order)
+                            //     // order.reset();
+                            //     market.emit('stop_trade', order)
+                            // }
                         }
                         order.info = order.stopTrade ? 'Stop Loss Reached [SELL/RESET]' : 'Going Smoothly [HOLD]';
 
