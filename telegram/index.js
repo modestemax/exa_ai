@@ -28,9 +28,7 @@ module.exports.start = async function () {
 
 
     debug('starting');
-    market.on('get_bot', function () {
-        market.emit('this_is_bot', {bot, channel})
-    });
+    market.emit('bot_dispatch', {bot, channel})
 
     market.on(market.STALE_EVENT, function () {
         debug('Exa is sillent');
@@ -436,11 +434,8 @@ module.exports.start = async function () {
                 case /^list/.test(message):
                     list(msg)
                     break;
-                case /^fast/.test(message):
+                case /^fast?/.test(message):
                     market.emit('show_fast_trade_result', {bot, chatId})
-                    break;
-                    case /^fastb/.test(message):
-                    market.emit('show_fastb_trade_result', {bot, chatId})
                     break;
                 case /^trade(buy|sell)(.*?)\s*(\d+)$/.test(message) && isAdmin(msg): {
                     let match = message.match(/^trade(buy|sell)(.*?)\s*(\d+)$/);

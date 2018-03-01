@@ -39,7 +39,8 @@ module.exports.setKey = function ({api_key, secret}) {
 module.exports.loadMarkets = async function (_market, _trade) {
     market = _market;
     trade = _trade;
-    fastTrade();//compute and show fast trade result
+    fastTrade({side: 'sell'});//compute and show fast trade result
+    fastTrade({side: 'buy'});//compute and show fast trade result
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
 
@@ -419,71 +420,72 @@ function infoLoader() {
 }
 
 
-function fastTrade() {
+function fastTrade({side}) {
 
-    let fastSymbols = {}
+    let fastSymbols = {}, bot, channel;
+    market.on('bot_dispatch', (botParams) => {
+        ({bot, channel} = botParams)
+    });
 
-    market.on('exa_sell_signal', function (symbol) {
+    market.on(side === 'sell' ? 'exa_sell_signal' : 'exa_buy_signal', async function (symbol) {
         if (!fastSymbols[symbol]) {
-            fastSymbols[symbol] = true;
-            tradeFast(symbol);
+            fastSymbols[symbol] = {tradeFast: await tradeFast(symbol)};
         }
     });
-    market.on('exa_buy_signal', function (symbol) {
+    market.on(side === 'sell' ? 'exa_buy_signal' : 'exa_sell_signal', function (symbol) {
             if (fastSymbols[symbol]) {
-                let ev1, ev2;
-                ev1 = market.emit('this_is_bot', ({bot, channel}) => {
-                    market.removeListener(ev1);
-                    market.removeListener(ev2);
-                    market.emit('show_fast_trade_result', {bot, chatId: channel, symbol})
-                });
-                ev2 = market.emit('get_bot');
+                showFastTradeResult({bot, chatId: channel, symbol});
                 delete fastSymbols[symbol]
             }
         }
     );
 
-    function tradeFast(symbol) {
-        market.emit('fast_trade', symbol)
-    }
+    setInterval(() => showFastTradeResult({bot, chatId: channel}), 15 * 60e3);
 
+    // setInterval(() => bot && showFastTradeResult({bot, chatId: channel}), 1e3);
 
-    market.on('fast_trade', async symbol1 => {
-        let buyPrice, price, highPrice = -Infinity, gain, oldGain, buyTime = new Date().getTime();
-        price = buyPrice = await getPrice({symbol: symbol1});
-        let new_ticker_handler = market.on('new_ticker', async () => {
-            price = await getPrice({symbol: symbol1});
+    async function tradeFast(symbol) {
+        let buyPrice, price, highPrice = -Infinity, gain, buyTime = new Date().getTime();
+        price = buyPrice = await getPrice({symbol});
+        return async function () {
+            price = await getPrice({symbol});
             let newHighPrice = Math.max(highPrice, price);
             if (newHighPrice !== highPrice) {
                 highPrice = newHighPrice;
                 gain = getGain(buyPrice, highPrice);
                 let duration = moment.duration(new Date().getTime() - buyTime).humanize();
-                fastSymbols[symbol1] = {gain, duration};
+                _.extend(fastSymbols[symbol], {gain, duration});
             }
+        }
+    }
 
-        });
-        let no_fast_trade_handler = market.on('no_fast_trade', symbol2 => {
-            if (!symbol2 || symbol2 === symbol1) {
-                market.removeListener(new_ticker_handler);
-                market.removeListener(no_fast_trade_handler);
-                delete fastSymbols[symbol];
-            }
-            if (!symbol2) {
-                fastSymbols = {}
-            }
+
+    market.on('new_ticker', async () => {
+        _.keys(fastSymbols).forEach(symbol => {
+            fastSymbols[symbol].tradeFast();
         })
+
+    });
+    market.on('no_fast_trade', symbol => {
+        if (symbol) {
+            delete fastSymbols[symbol];
+        } else {
+            fastSymbols = {}
+        }
     });
 
-    market.on('show_fast_trade_result', ({bot, chatId, symbol}) => {
+    market.on('show_fast_trade_result', showFastTradeResult);
+
+    function showFastTradeResult({bot, chatId, symbol}) {
         let result = _.keys(!symbol ? fastSymbols : {[symbol]: fastSymbols[symbol]}).reduce((result, symbol) => {
             if (fastSymbols[symbol]) {
                 let {gain, duration} = fastSymbols[symbol];
                 if (!isNaN(gain) && duration) {
-                    return result + `/${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
+                    return result + ` /${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
                 }
             }
             return result;
-        }, '');
-        bot.sendMessage(chatId, result || 'No Fast Trade currently running', {parse_mode: "HTML"});
-    })
+        }, `<pre>Fast Trade ${side.toUpperCase()}</pre>`);
+        bot && bot.sendMessage(chatId, result || 'No Fast Trade currently running', {parse_mode: "HTML"});
+    }
 }

@@ -60,6 +60,12 @@ function setSignals({buy, sell}) {
         return _.sortBy(signals, 'time', 'desc')[0]
     });
     signals = _.groupBy(allSignals, 'signal')
+    notifySignals();
+}
+
+function notifySignals() {
+    _.forEach(signals.buy, signal => market.emit('exa_buy_signal', signal.currency));
+    _.forEach(signals.sell, signal => market.emit('exa_sell_signal', signal.currency));
 }
 
 function restartExaIfStale() {
@@ -77,7 +83,7 @@ module.exports.isMarketRunning = () => isMarketRunning;
 
 module.exports.track = function ({symbol, activate}) {
     activate ? symbolsTracked[symbol] = symbolsTracked[symbol] || {} :
-        symbol ? delete symbolsTracked[symbol] : _.mapKeys(symbolsTracked, (v,symbol) =>delete symbolsTracked[symbol]);
+        symbol ? delete symbolsTracked[symbol] : _.mapKeys(symbolsTracked, (v, symbol) => delete symbolsTracked[symbol]);
 };
 
 module.exports.trade = function (...args) {
@@ -188,7 +194,8 @@ const tradeListSymbol = module.exports.tradeListSymbol = function () {
 };
 const top10 = module.exports.top10 = function (...args) {
     return trade.top10.apply(trade, args)
-};const top1h = module.exports.top1h = function (...args) {
+};
+const top1h = module.exports.top1h = function (...args) {
     return trade.top1h.apply(trade, args)
 };
 const getPrice = module.exports.getPrice = function (...args) {
