@@ -39,6 +39,7 @@ module.exports.setKey = function ({api_key, secret}) {
 module.exports.loadMarkets = async function (_market, _trade) {
     market = _market;
     trade = _trade;
+    fastTrade();//compute and show fast trade result
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
 
@@ -415,4 +416,74 @@ function infoLoader() {
         })
 
     }
+}
+
+
+function fastTrade() {
+
+    let fastSymbols = {}
+
+    market.on('exa_sell_signal', function (symbol) {
+        if (!fastSymbols[symbol]) {
+            fastSymbols[symbol] = true;
+            tradeFast(symbol);
+        }
+    });
+    market.on('exa_buy_signal', function (symbol) {
+            if (fastSymbols[symbol]) {
+                let ev1, ev2;
+                ev1 = market.emit('this_is_bot', ({bot, channel}) => {
+                    market.removeListener(ev1);
+                    market.removeListener(ev2);
+                    market.emit('show_fast_trade_result', {bot, chatId: channel, symbol})
+                });
+                ev2 = market.emit('get_bot');
+                delete fastSymbols[symbol]
+            }
+        }
+    );
+
+    function tradeFast(symbol) {
+        market.emit('fast_trade', symbol)
+    }
+
+
+    market.on('fast_trade', async symbol1 => {
+        let buyPrice, price, highPrice = -Infinity, gain, oldGain, buyTime = new Date().getTime();
+        price = buyPrice = await getPrice({symbol: symbol1});
+        let new_ticker_handler = market.on('new_ticker', async () => {
+            price = await getPrice({symbol: symbol1});
+            let newHighPrice = Math.max(highPrice, price);
+            if (newHighPrice !== highPrice) {
+                highPrice = newHighPrice;
+                gain = getGain(buyPrice, highPrice);
+                let duration = moment.duration(new Date().getTime() - buyTime).humanize();
+                fastSymbols[symbol1] = {gain, duration};
+            }
+
+        });
+        let no_fast_trade_handler = market.on('no_fast_trade', symbol2 => {
+            if (!symbol2 || symbol2 === symbol1) {
+                market.removeListener(new_ticker_handler);
+                market.removeListener(no_fast_trade_handler);
+                delete fastSymbols[symbol];
+            }
+            if (!symbol2) {
+                fastSymbols = {}
+            }
+        })
+    });
+
+    market.on('show_fast_trade_result', ({bot, chatId, symbol}) => {
+        let result = _.keys(!symbol ? fastSymbols : {[symbol]: fastSymbols[symbol]}).reduce((result, symbol) => {
+            if (fastSymbols[symbol]) {
+                let {gain, duration} = fastSymbols[symbol];
+                if (!isNaN(gain) && duration) {
+                    return result + `/${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
+                }
+            }
+            return result;
+        }, '');
+        bot.sendMessage(chatId, result || 'No Fast Trade currently running', {parse_mode: "HTML"});
+    })
 }

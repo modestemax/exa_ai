@@ -26,7 +26,12 @@ module.exports.start = async function () {
         chats[MAX_CHAT_ID_BITCOIN_INVEST] = MAX_CHAT_ID_BITCOIN_INVEST;
     }
 
+
     debug('starting');
+    market.on('get_bot', function () {
+        market.emit('this_is_bot', {bot, channel})
+    });
+
     market.on(market.STALE_EVENT, function () {
         debug('Exa is sillent');
         Object.keys(chats).forEach(chatId => bot.sendMessage(chatId, "No reply from Exa [URGENT]").catch(_.noop));
@@ -430,6 +435,12 @@ module.exports.start = async function () {
                     break;
                 case /^list/.test(message):
                     list(msg)
+                    break;
+                case /^fast/.test(message):
+                    market.emit('show_fast_trade_result', {bot, chatId})
+                    break;
+                    case /^fastb/.test(message):
+                    market.emit('show_fastb_trade_result', {bot, chatId})
                     break;
                 case /^trade(buy|sell)(.*?)\s*(\d+)$/.test(message) && isAdmin(msg): {
                     let match = message.match(/^trade(buy|sell)(.*?)\s*(\d+)$/);
