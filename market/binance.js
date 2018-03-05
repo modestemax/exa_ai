@@ -41,6 +41,7 @@ module.exports.loadMarkets = async function (_market, _trade) {
     trade = _trade;
     fastTrade({side: 'sell'});//compute and show fast trade result
     fastTrade({side: 'buy'});//compute and show fast trade result
+    hypeTrade();
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
 
@@ -380,7 +381,7 @@ function createWS(ws) {
         createWS(ws);
     });
 
-   // setTimeout(() => ws.close(), 10e3)
+    // setTimeout(() => ws.close(), 10e3)
 
     return ws;
 }
@@ -388,7 +389,7 @@ function createWS(ws) {
 
 function changeTickers(data) {
     tickers24h = data;
-    market.emit('new_ticker');
+    market.emit('new_ticker', tickers24h);
 }
 
 function getGain(buyPrice, sellPrice) {
@@ -507,5 +508,55 @@ function fastTrade({side}) {
             return result;
         }, `<pre>Fast Trade ${side.toUpperCase()}</pre>`);
         bot && bot.sendMessage(chatId, result || 'No Fast Trade currently running', {parse_mode: "HTML"});
+    }
+}
+
+
+function hypeTrade() {
+
+    let symbols = {}, bot, channel;
+    market.on('bot_dispatch', (botParams) => {
+        ({bot, channel} = botParams)
+    });
+
+    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
+    //
+    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
+
+
+    async function findHype(symbol) {
+        let buyPrice, price, gain, buyTime = new Date().getTime();
+        price = buyPrice = await getPrice({symbol});
+        return async function () {
+            price = await getPrice({symbol});
+            gain = getGain(buyPrice, price);
+            let duration = moment.duration(new Date().getTime() - buyTime).humanize();
+            _.extend(symbols[symbol], {gain, duration});
+        }
+    }
+
+
+    market.on('new_ticker', async (tickers24h) => {
+        _.each(tickers24h, async ({symbol}) => {
+            if(/btc$/i.test(symbol)) {
+                symbols[symbol] = symbols[symbol] || {symbol, findHype: await findHype(symbol)};
+                symbols[symbol].findHype();
+            }
+        })
+
+    });
+
+    market.on('show_hype_trade_result', showHypeTradeResult);
+
+    function showHypeTradeResult({bot, chatId}) {
+        let hype = _.orderBy(symbols, 'gain', 'desc').slice(0, 10);
+        let result = hype.reduce((result, hype) => {
+            let {gain, duration, symbol} = hype;
+            if (!isNaN(gain) && duration) {
+                return result + `${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
+            }
+            return result;
+        }, `<pre>Top 10 Hype Trade </pre>`);
+        bot && bot.sendMessage(chatId, result, {parse_mode: "HTML"});
     }
 }

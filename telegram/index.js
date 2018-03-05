@@ -437,6 +437,9 @@ module.exports.start = async function () {
                 case /^fast?/.test(message):
                     market.emit('show_fast_trade_result', {bot, chatId})
                     break;
+                case /^hyp?/.test(message):
+                    market.emit('show_hype_trade_result', {bot, chatId})
+                    break;
                 case /^trade(buy|sell)(.*?)\s*(\d+)$/.test(message) && isAdmin(msg): {
                     let match = message.match(/^trade(buy|sell)(.*?)\s*(\d+)$/);
                     let side = match[1];
