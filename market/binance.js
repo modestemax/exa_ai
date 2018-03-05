@@ -28,7 +28,7 @@ const streams = binanceWS.streams;
 
 let binanceRest = createBinanceRest();
 let binanceBusy;
-let tickers24h, tickers24hOk;
+let tickers24h;
 
 module.exports.setKey = function ({api_key, secret}) {
     [APIKEY, SECRET] = [api_key, secret];
@@ -322,53 +322,73 @@ function createBinanceRest() {
 }
 
 
-binanceWS.onCombinedStream(
-    [
-        // streams.depth('BNBBTC'),
-        // streams.depthLevel('BNBBTC', 5),
-        // streams.kline('BNBBTC', '5m'),
-        // streams.aggTrade('BNBBTC'),
-        // streams.trade('BNBBTC'),
-        // streams.ticker('BNBBTC'),
-        streams.allTickers()
-    ],
-    (streamEvent) => {
-        switch (streamEvent.stream) {
-            case streams.depth('BNBBTC'):
-                console.log('Depth Event', streamEvent.data);
-                break;
-            case streams.depthLevel('BNBBTC', 5):
-                console.log('Depth Level Event', streamEvent.data);
-                break;
-            case streams.kline('BNBBTC', '5m'):
-                console.log('Kline Event', streamEvent.data);
-                break;
-            case streams.aggTrade('BNBBTC'):
-                console.log('AggTrade Event', streamEvent.data);
-                break;
-            case streams.trade('BNBBTC'):
-                console.log('Trade Event', streamEvent.data);
-                break;
-            case streams.ticker('BNBBTC'):
-                console.log('BNBBTC Ticker Event', streamEvent.data);
-                break;
-            case streams.allTickers():
-                console.log('allTickers OK ', streamEvent.data.length);
-                changeTickers(streamEvent.data);
-                // getPrice({symbol: 'ethbtc'});
-                break;
+createWS();
+
+function createWS(ws) {
+    let tickers24hOk;
+    ws && ws.close();
+    ws = binanceWS.onCombinedStream(
+        [
+            // streams.depth('BNBBTC'),
+            // streams.depthLevel('BNBBTC', 5),
+            // streams.kline('BNBBTC', '5m'),
+            // streams.aggTrade('BNBBTC'),
+            // streams.trade('BNBBTC'),
+            // streams.ticker('BNBBTC'),
+            streams.allTickers()
+        ],
+        (streamEvent) => {
+            switch (streamEvent.stream) {
+                case streams.depth('BNBBTC'):
+                    console.log('Depth Event', streamEvent.data);
+                    break;
+                case streams.depthLevel('BNBBTC', 5):
+                    console.log('Depth Level Event', streamEvent.data);
+                    break;
+                case streams.kline('BNBBTC', '5m'):
+                    console.log('Kline Event', streamEvent.data);
+                    break;
+                case streams.aggTrade('BNBBTC'):
+                    console.log('AggTrade Event', streamEvent.data);
+                    break;
+                case streams.trade('BNBBTC'):
+                    console.log('Trade Event', streamEvent.data);
+                    break;
+                case streams.ticker('BNBBTC'):
+                    console.log('BNBBTC Ticker Event', streamEvent.data);
+                    break;
+                case streams.allTickers():
+                    console.log('allTickers OK ', streamEvent.data.length);
+                    changeTickers(streamEvent.data);
+                    // getPrice({symbol: 'ethbtc'});
+                    break;
+            }
         }
-    }
-);
+    );
+
+    ws.on('message', () => {
+        tickers24hOk && clearTimeout(tickers24hOk);
+        tickers24hOk = setTimeout(() => {
+            market && market.emit && market.emit('binance_panic')
+            createWS(ws)
+        }, 5e3)
+    });
+    ws.on('close', () => {
+        createWS(ws);
+    });
+    ws.on('error', () => {
+        createWS(ws);
+    });
+
+    setTimeout(() => ws.close(), 10e3)
+
+    return ws;
+}
 
 
 function changeTickers(data) {
     tickers24h = data;
     market.emit('new_ticker');
-    tickers24hOk && clearInterval(tickers24hOk);
-    tickers24hOk = setInterval(() => {
-        market && market.emit && market.emit('binance_panic')
-    }, 5e3)
 }
 
 function getGain(buyPrice, sellPrice) {

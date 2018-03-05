@@ -42,7 +42,7 @@ module.exports.start = async function () {
 
     (function ChannelNotifier() {
         market.on('binance_panic', function () {
-            bot.sendMessage(channel, 'NO DATA FROM BINANCE [URGENT]')
+            bot.sendMessage(channel, 'NO DATA FROM BINANCE [RESTARTING SOCKET]')
         });
         market.on('buy_order_ok', function (order) {
             evolution[order.symbol] = order;
