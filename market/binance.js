@@ -380,7 +380,7 @@ function createWS(ws) {
         createWS(ws);
     });
 
-    setTimeout(() => ws.close(), 10e3)
+   // setTimeout(() => ws.close(), 10e3)
 
     return ws;
 }
