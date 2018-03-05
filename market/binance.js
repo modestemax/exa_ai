@@ -519,9 +519,9 @@ function hypeTrade() {
         ({bot, channel} = botParams)
     });
 
-    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
-    //
-    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
+    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
+
+    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
 
 
     async function findHype(symbol) {
@@ -531,24 +531,48 @@ function hypeTrade() {
             price = await getPrice({symbol});
             gain = getGain(buyPrice, price);
             let duration = moment.duration(new Date().getTime() - buyTime).humanize();
-            _.extend(symbols[symbol], {gain, duration});
+            return {gain, symbol, duration};
         }
     }
 
+    async function hypeGen({symbol, minute = 1, maxStatus = 4}) {
+        if (!symbols[symbol]) {
+            let hSymbol = symbols[symbol] = {symbol, signals: []};
+            let signals = hSymbol.signals;
+            signals.push({findHype: await findHype(symbol)});
+            if (signals.length > maxStatus) signals.unshift();
+            setTimeout(() => hypeGen(symbol), minute * 60e3)
+        }
+    }
 
-    market.on('new_ticker', async (tickers24h) => {
-        _.each(tickers24h, async ({symbol}) => {
-            if(/btc$/i.test(symbol)) {
-                symbols[symbol] = symbols[symbol] || {symbol, findHype: await findHype(symbol)};
-                symbols[symbol].findHype();
+    market.on('new_ticker', (tickers24h) => {
+        _.each(tickers24h, ({symbol}) => {
+            if (symbol && !symbols[symbol] && /btc$/i.test(symbol)) {
+                hypeGen({symbol, minute: .5});
             }
         })
+    });
 
+    market.on('new_ticker', async () => {
+        _.each(symbols, async ({symbol}) => {
+            let signals = symbols[symbol].signals;
+            _.forEach(signals, async signal => {
+                signal.status = await signal.findHype();
+            });
+        })
     });
 
     market.on('show_hype_trade_result', showHypeTradeResult);
 
     function showHypeTradeResult({bot, chatId}) {
+        let top = []
+        _.range(4).forEach((i) => {
+
+            top[i] = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
+
+            top[i] = _.orderBy(top[i], ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
+            top[i] = _.map(top[i], ({signals}) => signals[i].status)
+        });
         let hype = _.orderBy(symbols, 'gain', 'desc').slice(0, 10);
         let result = hype.reduce((result, hype) => {
             let {gain, duration, symbol} = hype;
