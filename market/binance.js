@@ -39,9 +39,12 @@ module.exports.setKey = function ({api_key, secret}) {
 module.exports.loadMarkets = async function (_market, _trade) {
     market = _market;
     trade = _trade;
-    fastTrade({side: 'sell'});//compute and show fast trade result
-    fastTrade({side: 'buy'});//compute and show fast trade result
-    hypeTrade();
+    market.once('new_ticker', () => {
+        fastTrade({side: 'sell'});//compute and show fast trade result
+        fastTrade({side: 'buy'});//compute and show fast trade result
+        hypeTrade();
+    });
+
     try {
         await Promise.all([exchange.loadMarkets(), cmc.loadMarkets()]);
 
@@ -141,16 +144,18 @@ async function topCMC() {
     }
 }
 
-const getPrice = module.exports.getPrice = async function ({symbol, html}) {
+const getPrice = module.exports.getPrice = async function ({symbol, html, force = true}) {
     symbol = symbol && symbol.replace('/', '').toUpperCase();
     let ticker = _.mapKeys(tickers24h, 'symbol')[symbol];
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
-    } else {
+    } else if (force) {
         debug('price of ' + symbol + 'from biance')
         ticker = await  binanceRest.tickerPrice({symbol});
         return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
+    } else {
+        return NaN;
     }
 };
 
@@ -524,7 +529,7 @@ async function hypeTrade() {
         let buyPrice, price, gain, buyTime = new Date().getTime();
         price = buyPrice = await getPrice({symbol});
         return async function () {
-            price = await getPrice({symbol});
+            price = await getPrice({symbol, force: false});
             gain = getGain(buyPrice, price);
             let duration = moment.duration(new Date().getTime() - buyTime).humanize();
             return {gain, symbol, duration};
@@ -538,8 +543,8 @@ async function hypeTrade() {
         }
         hSymbol = symbols[symbol];
         let signals = hSymbol.signals;
-        signals.push({findHype: await findHype(symbol)});
-        if (signals.length > maxTimeframe) signals.unshift();
+        signals.unshift({findHype: await findHype(symbol)});
+        if (signals.length > maxTimeframe) signals.pop();
         setTimeout(() => hypeGen({symbol, minute, maxTimeframe}), minute * 60e3)
 
     }
@@ -567,23 +572,54 @@ async function hypeTrade() {
     setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
 
 
-    function showHypeTradeResult({bot, chatId}) {
-        let top = []
-        _.range(4).forEach(async (i) => {
+    async function showHypeTradeResult({bot, chatId}) {
+        let top = await   Promise.map(_.range(4), async (i) => {
 
-            top[i] = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
+            let top = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
 
-            top[i] = _.orderBy(top[i], ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
-            top[i] = _.map(top[i], ({signals}) => signals[i].status)
-
-            let result = top[i].reduce((result, hype) => {
-                let {gain, duration, symbol} = hype;
-                if (!isNaN(gain) && duration) {
-                    return result + `${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
-                }
-                return result;
-            }, `<pre>Top 10 Hype Signal #${i} </pre>`);
-            bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+            top = _.orderBy(top, ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
+            top = _.map(top, ({signals}) => signals[i].status)
+            if (top.length) {
+                let {duration} = top[0];
+                let result = top.reduce((result, hype) => {
+                    let {gain, duration, symbol} = hype;
+                    if (!isNaN(gain) && duration) {
+                        return result + `${symbol} <b>${gain}%</b>\n`;
+                    }
+                    return result;
+                }, `<pre>Top 10 Hype Signal #${i}  [${duration}] </pre>`);
+                bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+            }
+            return top;
         });
+        showPumping({bot, chatId, top})
+        return top;
+    }
+
+    async function showPumping({bot, chatId, top}) {
+        top = _.reduce(top, (top, list) => {
+            _.forEach(list, status => {
+                let symbolStatus = top[status.symbol] = top[status.symbol] || {
+                    symbol: status.symbol,
+                    pump: 0,
+                    count: 0,
+                    signals: []
+                };
+                symbolStatus.pump += symbolStatus.gain < status.gain ? 1 : 0;
+                symbolStatus.gain = status.gain;
+                symbolStatus.count++;
+                symbolStatus.signals.unshift(status)
+            });
+            return top;
+        }, {});
+        top = _.orderBy(top, 'pump', 'desc').slice(0, 10);
+        let result = top.reduce((result, hype) => {
+            let {signals, symbol} = hype;
+            let text = _.reduce(signals, (text, signal) => {
+                return text + `<pre>   ${signal.duration} ${signal.gain}</pre>`
+            }, symbol);
+            return result + text;
+        }, `<pre>Top Pumpings</pre>`);
+        bot && await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
     }
 }
