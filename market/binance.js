@@ -13,6 +13,7 @@ let market, trade;
 // let APIKEY;
 // let SECRET;
 
+let sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const apijson = process.env.HOME + '/.api.json';
 const api = require(apijson);
@@ -150,7 +151,7 @@ const getPrice = module.exports.getPrice = async function ({symbol, html, force 
     if (ticker) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
-    } else if (force) {
+    } else if (force || /ethbtc/i.test(symbol)) {
         debug('price of ' + symbol + 'from biance')
         ticker = await  binanceRest.tickerPrice({symbol});
         return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
@@ -378,7 +379,7 @@ function createWS(ws) {
         tickers24hOk = setTimeout(() => {
             market && market.emit && market.emit('binance_panic')
             createWS(ws)
-        }, 5e3)
+        }, 10e3)
     });
     ws.on('close', () => {
         createWS(ws);
@@ -573,6 +574,7 @@ async function hypeTrade() {
 
 
     async function showHypeTradeResult({bot, chatId}) {
+        let ethbtc = symbols['ETHBTC'];
         let top = await   Promise.map(_.range(4), async (i) => {
 
             let top = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
@@ -580,14 +582,15 @@ async function hypeTrade() {
             top = _.orderBy(top, ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
             top = _.map(top, ({signals}) => signals[i].status)
             if (top.length) {
-                let {duration} = top[0];
+                let duration = ethbtc.signals[i].status.duration;
                 let result = top.reduce((result, hype) => {
                     let {gain, duration, symbol} = hype;
                     if (!isNaN(gain) && duration) {
-                        return result + `${symbol} <b>${gain}%</b>\n`;
+                        return result + `${symbol} <b>${gain}%</b>  <i> [${duration}] </i>\n`;
                     }
                     return result;
                 }, `<pre>Top 10 Hype Signal #${i}  [${duration}] </pre>`);
+                await sleep(1e3);
                 bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
             }
             return top;
@@ -620,6 +623,7 @@ async function hypeTrade() {
             }, symbol);
             return result + text;
         }, `<pre>Top Pumpings</pre>`);
-        bot && await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+        await sleep(1e3);
+        bot &&  await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
     }
 }
