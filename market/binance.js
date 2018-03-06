@@ -148,6 +148,7 @@ const getPrice = module.exports.getPrice = async function ({symbol, html}) {
         let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
         return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
     } else {
+        debug('price of ' + symbol + 'from biance')
         ticker = await  binanceRest.tickerPrice({symbol});
         return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
     }
@@ -512,17 +513,12 @@ function fastTrade({side}) {
 }
 
 
-function hypeTrade() {
+async function hypeTrade() {
 
     let symbols = {}, bot, channel;
-    market.on('bot_dispatch', (botParams) => {
+    market.once('bot_dispatch', (botParams) => {
         ({bot, channel} = botParams)
     });
-
-    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
-
-    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
-
 
     async function findHype(symbol) {
         let buyPrice, price, gain, buyTime = new Date().getTime();
@@ -535,22 +531,24 @@ function hypeTrade() {
         }
     }
 
-    async function hypeGen({symbol, minute = 1, maxStatus = 4}) {
+    async function hypeGen({symbol, minute = 5, maxStatus: maxTimeframe = 4}) {
+        let hSymbol;
         if (!symbols[symbol]) {
-            let hSymbol = symbols[symbol] = {symbol, signals: []};
-            let signals = hSymbol.signals;
-            signals.push({findHype: await findHype(symbol)});
-            if (signals.length > maxStatus) signals.unshift();
-            setTimeout(() => hypeGen(symbol), minute * 60e3)
+            symbols[symbol] = {symbol, signals: []};
         }
+        hSymbol = symbols[symbol];
+        let signals = hSymbol.signals;
+        signals.push({findHype: await findHype(symbol)});
+        if (signals.length > maxTimeframe) signals.unshift();
+        setTimeout(() => hypeGen({symbol, minute, maxTimeframe}), minute * 60e3)
+
     }
 
-    market.on('new_ticker', (tickers24h) => {
-        _.each(tickers24h, ({symbol}) => {
-            if (symbol && !symbols[symbol] && /btc$/i.test(symbol)) {
-                hypeGen({symbol, minute: .5});
-            }
-        })
+    await exchange.loadMarkets()
+    _.each(exchange.markets, ({id: symbol}) => {
+        if (symbol && !symbols[symbol] && /btc$/i.test(symbol)) {
+            hypeGen({symbol});
+        }
     });
 
     market.on('new_ticker', async () => {
@@ -564,23 +562,28 @@ function hypeTrade() {
 
     market.on('show_hype_trade_result', showHypeTradeResult);
 
+    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
+    //
+    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
+
+
     function showHypeTradeResult({bot, chatId}) {
         let top = []
-        _.range(4).forEach((i) => {
+        _.range(4).forEach(async (i) => {
 
             top[i] = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
 
             top[i] = _.orderBy(top[i], ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
             top[i] = _.map(top[i], ({signals}) => signals[i].status)
+
+            let result = top[i].reduce((result, hype) => {
+                let {gain, duration, symbol} = hype;
+                if (!isNaN(gain) && duration) {
+                    return result + `${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
+                }
+                return result;
+            }, `<pre>Top 10 Hype Signal #${i} </pre>`);
+            bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
         });
-        let hype = _.orderBy(symbols, 'gain', 'desc').slice(0, 10);
-        let result = hype.reduce((result, hype) => {
-            let {gain, duration, symbol} = hype;
-            if (!isNaN(gain) && duration) {
-                return result + `${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
-            }
-            return result;
-        }, `<pre>Top 10 Hype Trade </pre>`);
-        bot && bot.sendMessage(chatId, result, {parse_mode: "HTML"});
     }
 }
