@@ -4,6 +4,7 @@ const moment = require('moment');
 const _ = require('lodash');
 const EventEmitter = require('events');
 const Promise = require('bluebird');
+const async = require('async');
 const ccxt = require('ccxt');
 const binance = require('binance');
 const MARKET_TIMEOUT = DEBUG ? 50e3 : 10e3;
@@ -14,6 +15,31 @@ let market, trade;
 // let SECRET;
 
 let sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+let binanceReady = function (timeout) {
+    let q = async.queue(async (task, cb) => {
+        try {
+            cb(null, await   task());
+        } catch (ex) {
+            cb(ex)
+        }
+    }, 1);
+    let tasks = {};
+    return async function (task, {id = new Date().getTime(), priority = 0}) {
+        if (!tasks[id]) {
+            tasks[id] = new Promise((resolve, reject) => {
+                let add = priority ? q.unshift : q.push;
+                add.call(q, task, async function (err, res) {
+                    err && reject(res);
+                    res && resolve(res);
+                    delete tasks[id]
+                });
+                q.push(sleep.bind(null, timeout))
+            })
+        }
+        return tasks[id];
+    }
+}(500);
+
 
 const apijson = process.env.HOME + '/.api.json';
 const api = require(apijson);
@@ -43,7 +69,7 @@ module.exports.loadMarkets = async function (_market, _trade) {
     market.once('new_ticker', () => {
         fastTrade({side: 'sell'});//compute and show fast trade result
         fastTrade({side: 'buy'});//compute and show fast trade result
-        // hypeTrade();
+        hypeTrade();
     });
 
     try {
@@ -146,6 +172,7 @@ async function topCMC() {
 }
 
 const getPrice = module.exports.getPrice = async function ({symbol, html, force = true}) {
+    force = true;
     try {
         symbol = symbol && symbol.replace('/', '').toUpperCase();
         let ticker = _.mapKeys(tickers24h, 'symbol')[symbol];
@@ -153,8 +180,8 @@ const getPrice = module.exports.getPrice = async function ({symbol, html, force 
             let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
             return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
         } else if (force || /ethbtc/i.test(symbol)) {
-            debug('price of ' + symbol + 'from biance')
-            ticker = await  binanceRest.tickerPrice({symbol});
+            debug('price of ' + symbol + 'from biance');
+            ticker = await binanceReady(() => binanceRest.tickerPrice({symbol}), {id: 'tp' + symbol});
             return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
         } else {
             return NaN;
@@ -286,7 +313,10 @@ async function createOrder({side, type = 'MARKET', symbol, totalAmount, ratio = 
                     newOrder = 'testOrder';
                     //  totalAmount = 10;
                 }
-                let order = await binanceRest[newOrder]({symbol: tradingPair, side, type, quantity});
+                let order = await binanceReady(() => binanceRest[newOrder]({
+                    symbol: tradingPair,
+                    side, type, quantity
+                }), {priority: 1});
 
                 order = await addHelperInOrder({order, symbol: tradingPair, price, quantity});
                 setImmediate(() => callback(null, Object.assign({info: side + ' Order placed ' + symbol}, order)));
@@ -565,110 +595,113 @@ function fastTrade({side}) {
 
 
 async function hypeTrade() {
-
-    let symbols = {}, bot, channel;
-    market.once('bot_dispatch', (botParams) => {
-        ({bot, channel} = botParams)
-    });
-
-    async function findHype(symbol) {
-        let buyPrice, price, gain, buyTime = new Date().getTime();
-        price = buyPrice = await getPrice({symbol});
-        return async function () {
-            price = await getPrice({symbol, force: false});
-            gain = getGain(buyPrice, price);
-            let duration = moment.duration(new Date().getTime() - buyTime).humanize();
-            return {gain, symbol, duration};
-        }
-    }
-
-    async function hypeGen({symbol, minute = 5, maxStatus: maxTimeframe = 4}) {
-        let hSymbol;
-        if (!symbols[symbol]) {
-            symbols[symbol] = {symbol, signals: []};
-        }
-        hSymbol = symbols[symbol];
-        let signals = hSymbol.signals;
-        signals.unshift({findHype: await findHype(symbol)});
-        if (signals.length > maxTimeframe) signals.pop();
-        setTimeout(() => hypeGen({symbol, minute, maxTimeframe}), minute * 60e3)
-
-    }
-
-    await exchange.loadMarkets()
-    _.each(exchange.markets, ({id: symbol}) => {
-        if (symbol && !symbols[symbol] && /btc$/i.test(symbol)) {
-            hypeGen({symbol});
-        }
-    });
-
-    market.on('new_ticker', async () => {
-        _.each(symbols, async ({symbol}) => {
-            let signals = symbols[symbol].signals;
-            _.forEach(signals, async signal => {
-                signal.status = await signal.findHype();
-            });
-        })
-    });
-
-    market.on('show_hype_trade_result', showHypeTradeResult);
-
-    // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
-    //
-    setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
-
-
-    async function showHypeTradeResult({bot, chatId}) {
-        let ethbtc = symbols['ETHBTC'];
-        let top = await   Promise.map(_.range(4), async (i) => {
-
-            let top = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
-
-            top = _.orderBy(top, ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
-            top = _.map(top, ({signals}) => signals[i].status)
-            if (top.length) {
-                let duration = ethbtc.signals[i].status.duration;
-                let result = top.reduce((result, hype) => {
-                    let {gain, duration, symbol} = hype;
-                    if (!isNaN(gain) && duration) {
-                        return result + `${symbol} <b>${gain}%</b>  <i> [${duration}] </i>\n`;
-                    }
-                    return result;
-                }, `<pre>Top 10 Hype Signal #${i}  [${duration}] </pre>`);
-                await sleep(1e3);
-                bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
-            }
-            return top;
+    try {
+        let symbols = {}, bot, channel;
+        market.once('bot_dispatch', (botParams) => {
+            ({bot, channel} = botParams)
         });
-        showPumping({bot, chatId, top})
-        return top;
-    }
 
-    async function showPumping({bot, chatId, top}) {
-        top = _.reduce(top, (top, list) => {
-            _.forEach(list, status => {
-                let symbolStatus = top[status.symbol] = top[status.symbol] || {
-                    symbol: status.symbol,
-                    pump: 0,
-                    count: 0,
-                    signals: []
-                };
-                symbolStatus.pump += symbolStatus.gain < status.gain ? 1 : 0;
-                symbolStatus.gain = status.gain;
-                symbolStatus.count++;
-                symbolStatus.signals.unshift(status)
+        async function findHype(symbol) {
+            let buyPrice, price, gain, buyTime = new Date().getTime();
+            price = buyPrice = await getPrice({symbol});
+            return async function () {
+                price = await getPrice({symbol, force: false});
+                gain = getGain(buyPrice, price);
+                let duration = moment.duration(new Date().getTime() - buyTime).humanize();
+                return {gain, symbol, duration};
+            }
+        }
+
+        async function hypeGen({symbol, minute = 5, maxStatus: maxTimeframe = 4}) {
+            let hSymbol;
+            if (!symbols[symbol]) {
+                symbols[symbol] = {symbol, signals: []};
+            }
+            hSymbol = symbols[symbol];
+            let signals = hSymbol.signals;
+            signals.unshift({findHype: await findHype(symbol)});
+            if (signals.length > maxTimeframe) signals.pop();
+            setTimeout(() => hypeGen({symbol, minute, maxTimeframe}), minute * 60e3)
+
+        }
+
+        await exchange.loadMarkets()
+        _.each(exchange.markets, ({id: symbol}) => {
+            if (symbol && !symbols[symbol] && /btc$/i.test(symbol)) {
+                hypeGen({symbol});
+            }
+        });
+
+        market.on('new_ticker', async () => {
+            _.each(symbols, async ({symbol}) => {
+                let signals = symbols[symbol].signals;
+                _.forEach(signals, async signal => {
+                    signal.status = await signal.findHype();
+                });
+            })
+        });
+
+        market.on('show_hype_trade_result', showHypeTradeResult);
+
+        // setInterval(() => showHypeTradeResult({bot, chatId: channel}), 1 * 20e3);
+        //
+        setInterval(() => showHypeTradeResult({bot, chatId: channel}), 5 * 60e3);
+
+
+        async function showHypeTradeResult({bot, chatId}) {
+            let ethbtc = symbols['ETHBTC'];
+            let top = await   Promise.map(_.range(4), async (i) => {
+
+                let top = _.filter(symbols, ({signals}) => signals[i] && signals[i].status && signals[i].status.gain > 0);
+
+                top = _.orderBy(top, ({signals}) => signals[i].status.gain, 'desc').slice(0, 10);
+                top = _.map(top, ({signals}) => signals[i].status)
+                if (top.length) {
+                    let duration = ethbtc.signals[i].status.duration;
+                    let result = top.reduce((result, hype) => {
+                        let {gain, duration, symbol} = hype;
+                        if (!isNaN(gain) && duration) {
+                            return result + `${symbol} <b>${gain}%</b>  <i> [${duration}] </i>\n`;
+                        }
+                        return result;
+                    }, `<pre>Top 10 Hype Signal #${i}  [${duration}] </pre>`);
+                    await sleep(1e3);
+                    bot && await bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+                }
+                return top;
             });
+            showPumping({bot, chatId, top})
             return top;
-        }, {});
-        top = _.orderBy(top, 'pump', 'desc').slice(0, 10);
-        let result = top.reduce((result, hype) => {
-            let {signals, symbol} = hype;
-            let text = _.reduce(signals, (text, signal) => {
-                return text + `<pre>   ${signal.duration} ${signal.gain}</pre>`
-            }, symbol);
-            return result + text;
-        }, `<pre>Top Pumpings</pre>`);
-        await sleep(1e3);
-        bot && await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+        }
+
+        async function showPumping({bot, chatId, top}) {
+            top = _.reduce(top, (top, list) => {
+                _.forEach(list, status => {
+                    let symbolStatus = top[status.symbol] = top[status.symbol] || {
+                        symbol: status.symbol,
+                        pump: 0,
+                        count: 0,
+                        signals: []
+                    };
+                    symbolStatus.pump += symbolStatus.gain < status.gain ? 1 : 0;
+                    symbolStatus.gain = status.gain;
+                    symbolStatus.count++;
+                    symbolStatus.signals.unshift(status)
+                });
+                return top;
+            }, {});
+            top = _.orderBy(top, 'pump', 'desc').slice(0, 10);
+            let result = top.reduce((result, hype) => {
+                let {signals, symbol} = hype;
+                let text = _.reduce(signals, (text, signal) => {
+                    return text + `<pre>   ${signal.duration} ${signal.gain}</pre>`
+                }, symbol);
+                return result + text;
+            }, `<pre>Top Pumpings</pre>`);
+            await sleep(1e3);
+            bot && await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+        }
+    } catch (ex) {
+        console.log('hype_trade', ex);
     }
 }
