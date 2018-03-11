@@ -43,7 +43,7 @@ module.exports.loadMarkets = async function (_market, _trade) {
     market.once('new_ticker', () => {
         fastTrade({side: 'sell'});//compute and show fast trade result
         fastTrade({side: 'buy'});//compute and show fast trade result
-        hypeTrade();
+        // hypeTrade();
     });
 
     try {
@@ -146,17 +146,21 @@ async function topCMC() {
 }
 
 const getPrice = module.exports.getPrice = async function ({symbol, html, force = true}) {
-    symbol = symbol && symbol.replace('/', '').toUpperCase();
-    let ticker = _.mapKeys(tickers24h, 'symbol')[symbol];
-    if (ticker) {
-        let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
-        return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
-    } else if (force || /ethbtc/i.test(symbol)) {
-        debug('price of ' + symbol + 'from biance')
-        ticker = await  binanceRest.tickerPrice({symbol});
-        return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
-    } else {
-        return NaN;
+    try {
+        symbol = symbol && symbol.replace('/', '').toUpperCase();
+        let ticker = _.mapKeys(tickers24h, 'symbol')[symbol];
+        if (ticker) {
+            let {currentClose: price, priceChangePercent, baseAssetVolume: volume} = ticker;
+            return html ? `<b>${price}</b> <i>[${priceChangePercent}%] (vol. ${volume})</i>` : +price;
+        } else if (force || /ethbtc/i.test(symbol)) {
+            debug('price of ' + symbol + 'from biance')
+            ticker = await  binanceRest.tickerPrice({symbol});
+            return ticker ? html ? `<b>${ticker.price}</b>` : +ticker.price : NaN;
+        } else {
+            return NaN;
+        }
+    } catch (ex) {
+        return NaN
     }
 };
 
@@ -449,14 +453,14 @@ function infoLoader() {
 
 
 function fastTrade({side}) {
-
+    let out = {};
     let fastSymbols = {}, bot, channel;
     market.on('bot_dispatch', (botParams) => {
         ({bot, channel} = botParams)
     });
 
     market.on(side === 'sell' ? 'exa_sell_signal' : 'exa_buy_signal', async function (symbol) {
-        if (!fastSymbols[symbol]) {
+        if (!fastSymbols[symbol] && /btc$/i.test(symbol)) {
             fastSymbols[symbol] = {tradeFast: await tradeFast(symbol)};
         }
     });
@@ -473,16 +477,52 @@ function fastTrade({side}) {
     // setInterval(() => bot && showFastTradeResult({bot, chatId: channel}), 1e3);
 
     async function tradeFast(symbol) {
-        let buyPrice, price, highPrice = -Infinity, gain, buyTime = new Date().getTime();
+        let buyPrice, price,
+            highPrice = -Infinity, highGain = -Infinity, highDuration,
+            lowPrice = Infinity, lowGain = Infinity, lowDuration,
+            buyTime = new Date().getTime();
         price = buyPrice = await getPrice({symbol});
         return async function () {
-            price = await getPrice({symbol});
-            let newHighPrice = Math.max(highPrice, price);
-            if (newHighPrice !== highPrice) {
-                highPrice = newHighPrice;
-                gain = getGain(buyPrice, highPrice);
-                let duration = moment.duration(new Date().getTime() - buyTime).humanize();
-                _.extend(fastSymbols[symbol], {gain, duration});
+            price = await getPrice({symbol, force: false});
+            // let newHighPrice = Math.max(highPrice, price);
+            // if (newHighPrice !== highPrice) {
+            //     highPrice = newHighPrice;
+            //     highGain = getGain(buyPrice, highPrice);
+            //     let highDuration = moment.duration(new Date().getTime() - buyTime).humanize();
+            //     _.extend(fastSymbols[symbol], {highGain, highDuration});
+            // }
+            //
+            // let newLowPrice = Math.min(lowPrice, price);
+            // if (newLowPrice !== lowPrice) {
+            //     lowPrice = newLowPrice;
+            //     lowGain = getGain(buyPrice, lowPrice);
+            //     let lowDuration = moment.duration(new Date().getTime() - buyTime).humanize();
+            //     _.extend(fastSymbols[symbol], {lowGain, lowDuration});
+            // }
+            if (price) {
+                if ((lowGain > -.9 && highGain < 1.1)) {
+                    out[symbol] = false;
+                    let lowExt = extGain(price, lowPrice, Math.min);
+                    lowExt && ({extGain: lowGain, extPrice: lowPrice, extDuration: lowDuration} = lowExt);
+                    _.extend(fastSymbols[symbol], {lowGain, lowPrice, lowDuration});
+
+                    let highExt = extGain(price, highPrice, Math.max);
+                    highExt && ({extGain: highGain, extPrice: highPrice, extDuration: highDuration} = highExt);
+                    _.extend(fastSymbols[symbol], {highGain, highPrice, highDuration});
+                } else {
+                    out[symbol] || showFastTradeResult({bot, chatId: channel, symbol})
+                    out[symbol] = true;
+                }
+            }
+
+            function extGain(price, extPrice, extFn) {
+                let newExtPrice = extFn(extPrice, price);
+                if (price && newExtPrice !== extPrice) {
+                    extPrice = newExtPrice;
+                    let extGain = extFn(getGain(buyPrice, extPrice), 0);
+                    let extDuration = moment.duration(new Date().getTime() - buyTime).humanize();
+                    return {extGain, extPrice, extDuration};
+                }
             }
         }
     }
@@ -507,9 +547,14 @@ function fastTrade({side}) {
     function showFastTradeResult({bot, chatId, symbol}) {
         let result = _.keys(!symbol ? fastSymbols : {[symbol]: fastSymbols[symbol]}).reduce((result, symbol) => {
             if (fastSymbols[symbol]) {
-                let {gain, duration} = fastSymbols[symbol];
-                if (!isNaN(gain) && duration) {
-                    return result + ` /${symbol} <b>${gain}%</b> in <i>${duration}</i>\n`;
+                let {highGain, highDuration, lowGain, lowDuration} = fastSymbols[symbol];
+                if (!isNaN(highGain) && highDuration) {
+                    if (highGain >= 1.1 || lowGain <= -.9) {
+                        return result + `/${symbol}<b> Max Gain:${highGain}% in ${highDuration}` +
+                            `, Max Loss:${lowGain}% in ${lowDuration}</b>\n`;
+                    }
+                    return result + ` /${symbol} Max Gain:<i>${highGain}%</i> in ${highDuration}` +
+                        `, Max Loss:<i>${lowGain}%</i> in ${lowDuration}\n`;
                 }
             }
             return result;
@@ -624,6 +669,6 @@ async function hypeTrade() {
             return result + text;
         }, `<pre>Top Pumpings</pre>`);
         await sleep(1e3);
-        bot &&  await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
+        bot && await    bot.sendMessage(chatId, result, {parse_mode: "HTML"});
     }
 }

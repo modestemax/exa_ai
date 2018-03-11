@@ -87,7 +87,7 @@ module.exports.start = async function () {
 
     function lastBuyNotifier(chatId, symbol) {
         let _symbol = symbol;
-        return function ({action, symbol, raw_date, price}) {
+        return function ({action, symbol='', raw_date, price}) {
             debug('action ' + action);
             _symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() && bot.sendMessage(chatId, signalToText({
                 action: 'TRADE Last ' + action + ' Signal',
@@ -100,7 +100,7 @@ module.exports.start = async function () {
 
     function lastSellNotifier(chatId, symbol) {
         let _symbol = symbol;
-        return function ({action, symbol, raw_date, buyPrice, sellPrice, gain}) {
+        return function ({action, symbol='', raw_date, buyPrice, sellPrice, gain}) {
             debug('action ' + action);
             _symbol.toLowerCase() === symbol.replace('/', '').toLowerCase() && bot.sendMessage(chatId, signalToText({
                 action: 'TRADE Last ' + action + ' Signal',

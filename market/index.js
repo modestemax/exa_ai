@@ -54,6 +54,7 @@ function setStale() {
 function setSignals({buy, sell}) {
     //ne pas prendre les signaux vieux de plus de 15 minutes
     let allSignals = [].concat(buy, sell).filter(recentSignalFilter);
+    allSignals = _.filter(allSignals, s => /btc$/.test(s.currency));
     allSignals = _.sortBy(allSignals, 'currency');
     allSignals = _.groupBy(allSignals, 'currency');
     allSignals = _.mapValues(allSignals, signals => {
@@ -131,24 +132,24 @@ const getExaAiSignals = module.exports.getExaAiSignals = function getExaAiSignal
     try {
         let get = DEBUG ? curl_get : curl.get.bind(curl);
         // curl_get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-        get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
-            // curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        // get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
+        curl.get('https://signal3.exacoin.co/ai_all_signal?time=15m', (err, res, body) => {
             try {
                 if (err) {
                     market.emit(ALL_AI_ERROR_EVENT, err);
                     console.log("ai_all_signal error");
-                    console.log(err)
+                    console.log(err.toString())
                 } else {
                     body ? setSignals(JSON.parse(body)) : resetSignals();
                     setExaRateLimit();
                     trade.tradeSymbols();
                     trackSymbols();
                     exaAIOK++;
-                    console.log("got ai_all_signal");
+                    console.log(`got ai_all_signal buy:${_.get(signals, 'buy.length', 0)} sell:${_.get(signals, 'sell.length', 0)}`);
                 }
             } catch (ex) {
                 console.log(ex)
-                debugger
+                //debugger
             } finally {
                 setTimeout(getExaAiSignals, exaRateLimit);
             }
